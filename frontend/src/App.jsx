@@ -17,7 +17,7 @@ import Settings from './pages/Settings';
 
 const App = () => {
   return (
-    <div className="flex h-screen bg-dark-bg text-slate-200 overflow-hidden font-sans">
+    <div className="flex h-screen bg-slate-900 text-slate-200 overflow-hidden font-sans">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <DemoBanner />

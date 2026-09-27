@@ -47,24 +47,24 @@ const Sidebar = () => {
   const { systemStatus, activeAlerts, isDemo } = useAppContext();
 
   const statusColor = systemStatus === 'online'
-    ? 'bg-success-500'
+    ? 'bg-green-500'
     : systemStatus === 'offline'
-    ? 'bg-error-500'
-    : 'bg-warning-500';
+    ? 'bg-red-500'
+    : 'bg-amber-500';
 
   return (
     <div
-      className={`relative flex flex-col bg-dark-surface border-r border-dark-border transition-all duration-300 ease-in-out shrink-0 ${collapsed ? 'w-[70px]' : 'w-64'}`}
+      className={`relative flex flex-col bg-slate-900 border-r border-slate-700/80 transition-all duration-300 ease-in-out shrink-0 ${collapsed ? 'w-[70px]' : 'w-64'}`}
     >
       {/* ── Brand ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center h-16 px-4 border-b border-dark-border shrink-0 overflow-hidden">
+      <div className="flex items-center h-16 px-4 border-b border-slate-700/80 shrink-0 overflow-hidden">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary-500 to-secondary-500 shrink-0 shadow-lg shadow-primary-500/30">
+          <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 shrink-0 shadow-lg shadow-blue-500/30">
             <Shield className="w-4 h-4 text-white" />
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <span className="block font-bold text-base bg-gradient-to-r from-primary-400 to-secondary-400 bg-clip-text text-transparent whitespace-nowrap">
+              <span className="block font-bold text-base bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent whitespace-nowrap">
                 SafeGuard AI
               </span>
               <span className="block text-[10px] text-slate-500 -mt-0.5">Edge AI Detection</span>
@@ -76,7 +76,7 @@ const Sidebar = () => {
       {/* ── Collapse toggle ────────────────────────────────────────────────── */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-5 z-10 w-6 h-6 bg-dark-elevated border border-dark-border rounded-full flex items-center justify-center hover:bg-slate-600 transition-colors shadow"
+        className="absolute -right-3 top-5 z-10 w-6 h-6 bg-slate-800 border border-slate-600 rounded-full flex items-center justify-center hover:bg-slate-700 transition-colors shadow"
         title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         {collapsed
@@ -92,12 +92,12 @@ const Sidebar = () => {
             {/* Group label */}
             {!collapsed && gi > 0 && (
               <div className="px-3 pt-4 pb-1">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">
                   {group.label}
                 </span>
               </div>
             )}
-            {collapsed && gi > 0 && <div className="mx-3 my-2 border-t border-dark-border/60" />}
+            {collapsed && gi > 0 && <div className="mx-3 my-2 border-t border-slate-700/60" />}
 
             {group.items.map((item) => (
               <NavLink
@@ -107,8 +107,8 @@ const Sidebar = () => {
                 className={({ isActive }) =>
                   `relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group ${
                     isActive
-                      ? 'bg-gradient-to-r from-primary-600 to-secondary-500 text-white shadow-md shadow-primary-500/20'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-dark-elevated'
+                      ? 'bg-gradient-to-r from-blue-600/90 to-blue-500/70 text-white shadow-md shadow-blue-500/20'
+                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
                   }`
                 }
               >
@@ -120,12 +120,12 @@ const Sidebar = () => {
 
                     {/* Live pulse dot */}
                     {item.live && (
-                      <span className="w-2 h-2 rounded-full bg-success-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.8)] shrink-0" />
+                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_6px_rgba(34,197,94,0.8)] shrink-0" />
                     )}
 
                     {/* Alert badge */}
                     {item.badge && activeAlerts > 0 && (
-                      <span className="bg-error-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shrink-0">
+                      <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shrink-0">
                         {activeAlerts > 99 ? '99+' : activeAlerts}
                       </span>
                     )}
@@ -134,7 +134,7 @@ const Sidebar = () => {
 
                 {/* Collapsed badge dot */}
                 {collapsed && item.badge && activeAlerts > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-error-500 rounded-full" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
                 )}
               </NavLink>
             ))}
@@ -143,8 +143,8 @@ const Sidebar = () => {
       </nav>
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 p-3 border-t border-dark-border">
-        <div className={`flex items-center gap-2 px-2 py-2 rounded-lg bg-dark-elevated/50 ${collapsed ? 'justify-center' : ''}`}>
+      <div className="shrink-0 p-3 border-t border-slate-700/80">
+        <div className={`flex items-center gap-2 px-2 py-2 rounded-lg bg-slate-800/50 ${collapsed ? 'justify-center' : ''}`}>
           <div className="relative shrink-0">
             <div className={`w-2.5 h-2.5 rounded-full ${statusColor}`} />
             {systemStatus === 'online' && (
@@ -156,7 +156,7 @@ const Sidebar = () => {
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-medium text-slate-300 capitalize">{systemStatus}</span>
                 {isDemo && (
-                  <span className="text-[9px] bg-warning-500/20 text-warning-400 border border-warning-500/30 px-1.5 py-px rounded font-bold uppercase tracking-wide">
+                  <span className="text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-px rounded font-bold uppercase tracking-wide">
                     demo
                   </span>
                 )}

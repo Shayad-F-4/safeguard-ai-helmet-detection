@@ -1,8 +1,8 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import CameraFeed from '../components/CameraFeed';
 import AlertCard from '../components/AlertCard';
-import { Play, Square, Pause, Camera as CameraIcon, Settings, VideoOff } from 'lucide-react';
-import { detectFrame } from '../services/api';
+import { Play, Square, Pause, Camera as CameraIcon, Settings, VideoOff, Sliders } from 'lucide-react';
+import { detectFrame, getCameras, createAlert } from '../services/api';
 import { useAppContext } from '../context/AppContext';
 
 // ---------------------------------------------------------------------------
@@ -62,34 +62,75 @@ const CameraOfflinePlaceholder = () => (
 // LiveMonitoring page
 // ---------------------------------------------------------------------------
 const LiveMonitoring = () => {
-  const { isDemo } = useAppContext();
+  const { isDemo, refreshAlerts } = useAppContext();
 
   const [isActive,  setIsActive]  = useState(false);
   const [isPaused,  setIsPaused]  = useState(false);
   const [frameCount, setFrameCount] = useState(0);
+  const [currentDetections, setCurrentDetections] = useState([]);
+  const [frameDimensions, setFrameDimensions] = useState({ width: 640, height: 480 });
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0.45);
+  const [cameras, setCameras] = useState([]);
+  const [selectedCamera, setSelectedCamera] = useState('Camera 01');
   const [stats, setStats] = useState({
     workers: 0, helmet: 0, noHelmet: 0, fps: 0, inferenceTime: 0,
   });
   const [recentAlerts, setRecentAlerts] = useState([]);
 
-  // Ref so handleFrame closure always sees latest isPaused without stale-closure
+  // Ref so handleFrame closure always sees latest isPaused & threshold without stale-closure
   const isPausedRef = useRef(false);
+  const confidenceThresholdRef = useRef(0.45);
+  const selectedCameraRef = useRef('Camera 01');
+  const lastAlertTimeRef = useRef(0);
 
-  // Keep ref in sync with state
+  // Keep refs in sync
+  useEffect(() => {
+    confidenceThresholdRef.current = confidenceThreshold;
+  }, [confidenceThreshold]);
+
+  useEffect(() => {
+    selectedCameraRef.current = selectedCamera;
+  }, [selectedCamera]);
+
   const syncPause = (val) => {
     isPausedRef.current = val;
     setIsPaused(val);
   };
 
+  // Fetch cameras on mount
+  useEffect(() => {
+    const fetchCamList = async () => {
+      try {
+        const res = await getCameras();
+        if (res.data?.cameras && res.data.cameras.length > 0) {
+          setCameras(res.data.cameras);
+          setSelectedCamera(res.data.cameras[0].name);
+        }
+      } catch (err) {
+        console.error('Failed to load camera list:', err);
+      }
+    };
+    fetchCamList();
+  }, []);
+
   // ---- Frame handler (called by CameraFeed) ----
   const handleFrame = useCallback(async (base64) => {
-    if (isPausedRef.current) return;                // honour pause
+    if (isPausedRef.current) return;
 
     try {
-      const res = await detectFrame({ frame: base64, camera_id: 'Camera 01' });
+      const res = await detectFrame({
+        frame: base64,
+        camera_id: selectedCameraRef.current,
+        confidence: confidenceThresholdRef.current,
+      });
+
       if (res.data && res.data.success !== false) {
         const data = res.data;
         setFrameCount((n) => n + 1);
+        setCurrentDetections(data.detections || []);
+        if (data.image_width && data.image_height) {
+          setFrameDimensions({ width: data.image_width, height: data.image_height });
+        }
         setStats({
           workers:       data.summary?.workers          ?? 0,
           helmet:        data.summary?.helmet            ?? 0,
@@ -100,27 +141,46 @@ const LiveMonitoring = () => {
 
         if (data.summary?.no_helmet > 0) {
           const violators = data.detections?.filter((d) => d.class === 'no_helmet') || [];
+          const nowMs = Date.now();
+
           violators.forEach((v, i) => {
+            const conf = typeof v.confidence === 'number'
+              ? (v.confidence <= 1 ? Math.round(v.confidence * 100) : Math.round(v.confidence))
+              : 88;
+
             const newAlert = {
-              id:          Date.now() + i,
+              id:          nowMs + i,
               severity:    'HIGH',
               message:     `No Helmet Detected — Worker #${v.id ?? '??'}`,
               worker_id:   `Worker #${v.id ?? '??'}`,
-              camera_name: 'Camera 01',
-              confidence:  typeof v.confidence === 'number'
-                             ? (v.confidence <= 1 ? v.confidence * 100 : v.confidence)
-                             : 88,
+              camera_name: selectedCameraRef.current,
+              confidence:  conf,
               created_at:  new Date().toISOString(),
               status:      'active',
             };
-            setRecentAlerts((prev) => [newAlert, ...prev].slice(0, 5));
+
+            setRecentAlerts((prev) => [newAlert, ...prev.filter(a => a.worker_id !== newAlert.worker_id)].slice(0, 5));
+
+            // Throttle backend alert creation (every 6 seconds max per violation)
+            if (nowMs - lastAlertTimeRef.current > 6000) {
+              lastAlertTimeRef.current = nowMs;
+              createAlert({
+                message: `No Helmet Detected — Worker #${v.id ?? '??'}`,
+                worker_id: `Worker #${v.id ?? '??'}`,
+                camera_name: selectedCameraRef.current,
+                severity: 'HIGH',
+                confidence: conf,
+              }).then(() => {
+                if (refreshAlerts) refreshAlerts();
+              }).catch(console.error);
+            }
           });
         }
       }
     } catch (err) {
       console.error('Frame detection error:', err);
     }
-  }, []); // stable — reads isPausedRef via ref
+  }, [refreshAlerts]); // stable callback
 
   // ---- Snapshot ----
   const handleSnapshot = () => {
@@ -151,6 +211,10 @@ const LiveMonitoring = () => {
   const handleStop = () => {
     setIsActive(false);
     syncPause(false);
+    setCurrentDetections([]);
+    setStats({
+      workers: 0, helmet: 0, noHelmet: 0, fps: 0, inferenceTime: 0,
+    });
   };
 
   // ---- Derived ----
@@ -167,25 +231,62 @@ const LiveMonitoring = () => {
       {/* ================================================================ */}
       <div className="flex-1 flex flex-col bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
         {/* Header bar */}
-        <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 shrink-0">
-          <div className="flex items-center space-x-4">
-            <h2 className="font-medium text-slate-200 text-sm">Main Entrance Camera</h2>
-            <select className="bg-slate-800 border border-slate-600 text-slate-300 text-xs rounded-md px-2 py-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none">
-              <option>Cam-01 (Main Entrance)</option>
-              <option>Cam-02 (Zone A)</option>
-              <option>Webcam (Local)</option>
+        <div className="p-4 border-b border-slate-700 flex flex-wrap justify-between items-center gap-3 bg-slate-900/50 shrink-0">
+          <div className="flex items-center space-x-3">
+            <h2 className="font-medium text-slate-200 text-sm hidden sm:block">Camera:</h2>
+            <select
+              value={selectedCamera}
+              onChange={(e) => setSelectedCamera(e.target.value)}
+              className="bg-slate-800 border border-slate-600 text-slate-300 text-xs rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer"
+            >
+              {cameras.length > 0 ? (
+                cameras.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name} {c.location ? `(${c.location})` : ''}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="Camera 01">Camera 01 (Main Entrance)</option>
+                  <option value="Camera 02">Camera 02 (Construction Zone A)</option>
+                  <option value="Camera 03">Camera 03 (Warehouse Floor)</option>
+                </>
+              )}
             </select>
           </div>
+
+          {/* Real-time Confidence Slider */}
+          <div className="flex items-center space-x-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
+            <Sliders className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <span className="text-xs text-slate-400 font-medium hidden md:inline">Threshold:</span>
+            <input
+              type="range"
+              min="0.20"
+              max="0.90"
+              step="0.05"
+              value={confidenceThreshold}
+              onChange={(e) => setConfidenceThreshold(parseFloat(e.target.value))}
+              className="w-16 sm:w-24 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              title={`Confidence threshold: ${Math.round(confidenceThreshold * 100)}%`}
+            />
+            <span className="text-xs font-mono font-bold text-blue-400 w-8">
+              {Math.round(confidenceThreshold * 100)}%
+            </span>
+          </div>
+
           <div className="flex items-center space-x-3">
-            {/* Frame counter */}
             {isActive && (
-              <span className="text-xs text-slate-500 font-mono tabular-nums">
+              <span className="text-xs text-slate-400 font-mono tabular-nums bg-slate-800 px-2 py-1 rounded border border-slate-700">
                 {frameCount.toLocaleString()} frames
               </span>
             )}
             <button
+              onClick={() => {
+                const s = prompt('Set confidence threshold (0.20 - 0.90):', confidenceThreshold);
+                if (s && !isNaN(parseFloat(s))) setConfidenceThreshold(Math.max(0.2, Math.min(0.9, parseFloat(s))));
+              }}
               className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-600 transition"
-              title="Settings"
+              title="Configure threshold"
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -195,7 +296,14 @@ const LiveMonitoring = () => {
         {/* Video area */}
         <div className="flex-1 relative p-4 min-h-[280px]">
           {isActive ? (
-            <CameraFeed onFrame={handleFrame} isActive={isActive} cameraId="default" />
+            <CameraFeed
+              onFrame={handleFrame}
+              isActive={isActive}
+              isPaused={isPaused}
+              cameraId={selectedCamera}
+              detections={currentDetections}
+              frameDimensions={frameDimensions}
+            />
           ) : (
             <CameraOfflinePlaceholder />
           )}
@@ -215,7 +323,12 @@ const LiveMonitoring = () => {
         <div className="p-4 border-t border-slate-700 bg-slate-900/50 flex justify-center items-center space-x-3 shrink-0">
           {!isActive ? (
             <button
-              onClick={() => { setIsActive(true); syncPause(false); setFrameCount(0); }}
+              onClick={() => {
+                setIsActive(true);
+                syncPause(false);
+                setFrameCount(0);
+                setCurrentDetections([]);
+              }}
               className="flex items-center space-x-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-lg font-medium transition-all shadow-sm"
             >
               <Play className="w-5 h-5 fill-current" />

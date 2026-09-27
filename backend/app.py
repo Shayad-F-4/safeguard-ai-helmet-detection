@@ -55,16 +55,25 @@ def create_app():
     # ------------------------------------------------------------------ #
     CORS(app, resources={
         r'/api/*': {
-            'origins': [
-                'http://localhost:5173',
-                'http://localhost:3000',
-                'http://127.0.0.1:5173',
-                'http://127.0.0.1:3000',
-            ],
+            'origins': '*',
             'methods': ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
             'allow_headers': ['Content-Type', 'Authorization'],
+        },
+        r'/uploads/*': {
+            'origins': '*',
+            'methods': ['GET', 'OPTIONS'],
         }
     })
+
+    from flask import send_from_directory
+
+    @app.route('/uploads/<path:filename>')
+    def serve_upload(filename):
+        return send_from_directory(app.config['UPLOAD_DIR'], filename)
+
+    @app.route('/api/uploads/<path:filename>')
+    def serve_api_upload(filename):
+        return send_from_directory(app.config['UPLOAD_DIR'], filename)
 
     # ------------------------------------------------------------------ #
     #  Database
@@ -125,6 +134,28 @@ def create_app():
         logger.error(f"Internal server error: {e}")
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
+    @app.route('/')
+    def root():
+        return jsonify({
+            'status': 'online',
+            'service': 'SafeGuard AI Backend API',
+            'version': '1.0.0',
+            'mode': app.config.get('ML_MODE', 'yolo'),
+            'frontend_url': 'http://localhost:5173',
+            'endpoints': {
+                'health': '/api/health',
+                'dashboard': '/api/dashboard/stats',
+                'detect_image': '/api/detect/image',
+                'detect_frame': '/api/detect/frame',
+                'detect_video': '/api/detect/video',
+                'alerts': '/api/alerts',
+                'analytics': '/api/analytics',
+                'cameras': '/api/cameras',
+                'model': '/api/model',
+                'settings': '/api/settings',
+            }
+        })
+
     logger.info(f"SafeGuard AI backend ready | ML_MODE={active_mode} | Port=5000")
     return app
 
@@ -137,4 +168,5 @@ if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV', 'development') == 'development'
     logger.info(f"Starting SafeGuard AI on http://localhost:{port}")
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    app.run(host='0.0.0.0', port=port, debug=debug, use_reloader=False)
+

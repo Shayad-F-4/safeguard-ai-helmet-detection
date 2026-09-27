@@ -34,6 +34,28 @@ const ImageDetection = () => {
     }
   };
 
+  const handleSaveResult = () => {
+    if (!result) return;
+    if (result.processed_image_url) {
+      const a = document.createElement('a');
+      a.href = result.processed_image_url;
+      a.download = `safeguard-detected-${selectedFile?.name || 'result.jpg'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `safeguard-detection-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
@@ -110,7 +132,10 @@ const ImageDetection = () => {
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-medium text-slate-200">Detection Analysis</h3>
-            <button className="flex items-center space-x-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-sm transition-colors border border-slate-600">
+            <button
+              onClick={handleSaveResult}
+              className="flex items-center space-x-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-sm transition-colors border border-slate-600 shadow-sm"
+            >
               <Download className="w-4 h-4" /> <span>Save Result</span>
             </button>
           </div>

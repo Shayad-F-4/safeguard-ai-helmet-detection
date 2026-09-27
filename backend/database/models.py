@@ -104,7 +104,7 @@ class Alert(db.Model):
             'message': self.message,
             'worker_id': self.worker_id,
             'camera_name': self.camera_name,
-            'confidence': round(self.confidence * 100, 1),
+            'confidence': round(self.confidence if self.confidence > 1 else self.confidence * 100, 1) if self.confidence is not None else 0,
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None,

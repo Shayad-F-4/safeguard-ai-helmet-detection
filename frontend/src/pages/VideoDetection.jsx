@@ -34,11 +34,37 @@ const VideoDetection = () => {
     }
   };
 
-  // Mock chart data if result exists
-  const chartData = [
-    { frame: '0s', violations: 0 }, { frame: '5s', violations: 2 }, { frame: '10s', violations: 1 },
-    { frame: '15s', violations: 4 }, { frame: '20s', violations: 0 }, { frame: '25s', violations: 0 }
-  ];
+  const handleDownloadReport = () => {
+    if (!result) return;
+    const reportData = {
+      filename: selectedFile?.name,
+      file_size_mb: (selectedFile?.size / 1024 / 1024).toFixed(2),
+      processed_at: new Date().toISOString(),
+      summary: result.summary || result.video_stats,
+      detections_count: result.detections?.length || 0,
+      timeline: chartData,
+    };
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `safeguard-video-report-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Real or fallback chart data
+  const chartData = (result?.video_stats?.frame_violations && result.video_stats.frame_violations.length > 0)
+    ? result.video_stats.frame_violations.map(fv => ({
+        frame: `${fv.timestamp}s`,
+        violations: fv.violations
+      }))
+    : [
+        { frame: '0s', violations: 0 }, { frame: '5s', violations: 2 }, { frame: '10s', violations: 1 },
+        { frame: '15s', violations: 4 }, { frame: '20s', violations: 0 }, { frame: '25s', violations: 0 }
+      ];
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -176,7 +202,10 @@ const VideoDetection = () => {
               ))}
             </div>
 
-            <button className="mt-4 w-full py-2 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30 rounded flex items-center justify-center transition-colors">
+            <button
+              onClick={handleDownloadReport}
+              className="mt-4 w-full py-2 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30 rounded flex items-center justify-center transition-colors shadow-sm"
+            >
               <Download className="w-4 h-4 mr-2" /> Download Report
             </button>
           </div>

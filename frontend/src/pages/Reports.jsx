@@ -39,6 +39,35 @@ const Reports = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadCSV = () => {
+    if (!report) return;
+    const s = report.summary || {};
+    const summaryRows = [
+      ['Metric', 'Value'],
+      ['Report Type', type],
+      ['Generated At', report.generated_at],
+      ['Total Workers', s.total_workers ?? 0],
+      ['Helmet Detections', s.helmet_detections ?? 0],
+      ['Violations', s.no_helmet_detections ?? 0],
+      ['Compliance Rate %', s.compliance_rate ?? 0],
+      ['Average Confidence %', s.avg_confidence ?? 0],
+      ['Total Sessions', s.total_sessions ?? 0],
+      ['Total Alerts', s.total_alerts ?? 0],
+      ['Active Alerts', s.active_alerts ?? 0],
+      [],
+      ['Date', 'Workers', 'Violations', 'Compliance %'],
+      ...(report.violation_summary || []).map(d => [d.date, d.workers, d.violations, d.compliance])
+    ];
+    const csvContent = 'data:text/csv;charset=utf-8,' + summaryRows.map(r => r.join(',')).join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `safeguard-report-${type}-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const s = report?.summary || {};
 
   return (
@@ -176,10 +205,13 @@ const Reports = () => {
 
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 print:hidden">
-              <button onClick={handleDownload} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-2 transition-colors text-sm">
+              <button onClick={handleDownloadCSV} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-2 transition-colors text-sm shadow-sm">
+                <Download className="w-4 h-4" /> Download CSV
+              </button>
+              <button onClick={handleDownload} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-2 transition-colors text-sm shadow-sm">
                 <Download className="w-4 h-4" /> Download JSON
               </button>
-              <button onClick={() => window.print()} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors text-sm">
+              <button onClick={() => window.print()} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors text-sm shadow-sm">
                 <Printer className="w-4 h-4" /> Print Report
               </button>
             </div>

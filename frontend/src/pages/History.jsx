@@ -1,20 +1,28 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DataTable from '../components/DataTable';
 import { Calendar, Download, Search, Trash2, Eye } from 'lucide-react';
 import { api } from '../services/api';
 
 const History = () => {
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [days, setDays] = useState('');
   const PER_PAGE = 15;
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/sessions', { params: { page, per_page: PER_PAGE } });
+      const params = { page, per_page: PER_PAGE };
+      if (search.trim()) params.search = search.trim();
+      if (days) params.days = parseInt(days);
+
+      const res = await api.get('/sessions', { params });
       setSessions(res.data.items || []);
       setTotalPages(res.data.pages || 1);
       setTotal(res.data.total || 0);
@@ -23,12 +31,17 @@ const History = () => {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, search, days]);
 
-  useEffect(() => { fetchSessions(); }, [fetchSessions]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchSessions();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [fetchSessions]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this session and all its detections?')) return;
+    if (!window.confirm(`Delete session #${id} and all its detections?`)) return;
     try {
       await api.delete(`/sessions/${id}`);
       fetchSessions();
@@ -37,11 +50,38 @@ const History = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    if (!sessions || sessions.length === 0) {
+      alert('No sessions to export.');
+      return;
+    }
+    const headers = ['Session ID', 'Date', 'Type', 'Source', 'Workers', 'Helmet', 'No Helmet', 'Compliance Rate %', 'Avg Confidence %'];
+    const rows = sessions.map(s => [
+      s.id,
+      `"${new Date(s.created_at).toISOString()}"`,
+      `"${s.input_type || ''}"`,
+      `"${(s.source || '').replace(/"/g, '""')}"`,
+      s.total_workers ?? 0,
+      s.helmet_count ?? 0,
+      s.no_helmet_count ?? 0,
+      s.compliance_rate ?? 0,
+      ((s.average_confidence ?? 0) * 100).toFixed(1),
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `safeguard-sessions-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const columns = [
     {
       header: 'Session ID',
       accessor: 'id',
-      cell: (row) => <span className="font-mono text-blue-400">#{row.id}</span>,
+      cell: (row) => <span className="font-mono text-blue-400 font-semibold">#{row.id}</span>,
     },
     {
       header: 'Date',
@@ -50,8 +90,8 @@ const History = () => {
         const d = new Date(row.created_at);
         return (
           <div>
-            <div className="text-slate-200 text-sm">{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-            <div className="text-slate-500 text-xs">{d.toLocaleTimeString([], { hour12: false })}</div>
+            <div className="text-slate-200 text-sm font-medium">{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+            <div className="text-slate-500 text-xs font-mono">{d.toLocaleTimeString([], { hour12: false })}</div>
           </div>
         );
       },
@@ -70,9 +110,9 @@ const History = () => {
       ),
     },
     { header: 'Source', accessor: 'source', cell: (row) => <span className="text-slate-400 text-sm truncate max-w-xs block">{row.source || '—'}</span> },
-    { header: 'Workers', accessor: 'total_workers', cell: (row) => <span className="font-mono">{row.total_workers}</span> },
-    { header: 'Helmet ✓', accessor: 'helmet_count', cell: (row) => <span className="text-green-400 font-mono">{row.helmet_count}</span> },
-    { header: 'No Helmet ✗', accessor: 'no_helmet_count', cell: (row) => <span className="text-red-400 font-mono">{row.no_helmet_count}</span> },
+    { header: 'Workers', accessor: 'total_workers', cell: (row) => <span className="font-mono font-bold">{row.total_workers}</span> },
+    { header: 'Helmet ✓', accessor: 'helmet_count', cell: (row) => <span className="text-green-400 font-mono font-semibold">{row.helmet_count}</span> },
+    { header: 'No Helmet ✗', accessor: 'no_helmet_count', cell: (row) => <span className="text-red-400 font-mono font-semibold">{row.no_helmet_count}</span> },
     {
       header: 'Compliance',
       accessor: 'compliance_rate',
@@ -84,17 +124,21 @@ const History = () => {
               style={{ width: `${row.compliance_rate}%` }}
             />
           </div>
-          <span className="text-xs font-mono">{row.compliance_rate}%</span>
+          <span className="text-xs font-mono font-medium">{row.compliance_rate}%</span>
         </div>
       ),
     },
-    { header: 'Avg Conf', accessor: 'average_confidence', cell: (row) => <span className="font-mono text-slate-300">{(row.average_confidence * 100).toFixed(1)}%</span> },
+    { header: 'Avg Conf', accessor: 'average_confidence', cell: (row) => <span className="font-mono text-slate-300">{((row.average_confidence ?? 0) * 100).toFixed(1)}%</span> },
     {
       header: 'Actions',
       accessor: 'actions',
       cell: (row) => (
         <div className="flex gap-2">
-          <button className="p-1.5 hover:bg-slate-700 text-blue-400 rounded transition-colors" title="View detections">
+          <button
+            onClick={() => navigate(`/detections?session_id=${row.id}`)}
+            className="p-1.5 hover:bg-slate-700 text-blue-400 rounded transition-colors"
+            title={`View detections for session #${row.id}`}
+          >
             <Eye className="w-4 h-4" />
           </button>
           <button
@@ -117,7 +161,10 @@ const History = () => {
           <h1 className="text-2xl font-bold text-slate-100">Detection History</h1>
           <p className="text-slate-400 text-sm mt-1">{total} sessions recorded</p>
         </div>
-        <button className="px-4 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white rounded-lg flex items-center gap-2 transition-colors text-sm">
+        <button
+          onClick={handleExportCSV}
+          className="px-4 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white rounded-lg flex items-center gap-2 transition-colors text-sm shadow-sm"
+        >
           <Download className="w-4 h-4" /> Export CSV
         </button>
       </div>
@@ -128,16 +175,22 @@ const History = () => {
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
           <input
             type="text"
-            placeholder="Search sessions..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search sessions by source or type..."
             className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg pl-10 pr-4 py-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
           />
         </div>
         <div className="relative">
           <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-          <select className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg pl-10 pr-8 py-2 focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none">
-            <option>All Time</option>
-            <option>Last 7 Days</option>
-            <option>Last 30 Days</option>
+          <select
+            value={days}
+            onChange={(e) => { setDays(e.target.value); setPage(1); }}
+            className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg pl-10 pr-8 py-2 focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none"
+          >
+            <option value="">All Time</option>
+            <option value="7">Last 7 Days</option>
+            <option value="30">Last 30 Days</option>
           </select>
         </div>
       </div>

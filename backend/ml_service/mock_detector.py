@@ -37,7 +37,7 @@ class MockHelmetDetector(HelmetDetector):
     #  Core prediction methods
     # ------------------------------------------------------------------ #
 
-    def predict_image(self, image_array) -> dict:
+    def predict_image(self, image_array, conf=None) -> dict:
         """Simulate detection on a still image."""
         h, w = self._get_dims(image_array)
         start = time.time()
@@ -49,7 +49,7 @@ class MockHelmetDetector(HelmetDetector):
 
         return self._build_response(detections, w, h, inference_ms, fps, mode='mock')
 
-    def predict_frame(self, frame_array) -> dict:
+    def predict_frame(self, frame_array, conf=None) -> dict:
         """Simulate detection on a live camera frame (faster than image)."""
         h, w = self._get_dims(frame_array)
         start = time.time()

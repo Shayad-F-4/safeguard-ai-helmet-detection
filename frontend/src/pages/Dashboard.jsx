@@ -22,18 +22,18 @@ const Skeleton = () => (
     {/* KPI row */}
     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
       {[...Array(6)].map((_, i) => (
-        <div key={i} className="h-28 bg-dark-surface rounded-xl border border-dark-border" />
+        <div key={i} className="h-28 bg-slate-800 rounded-xl border border-slate-700" />
       ))}
     </div>
     {/* Charts row */}
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="h-64 bg-dark-surface rounded-xl border border-dark-border" />
-      <div className="h-64 bg-dark-surface rounded-xl border border-dark-border" />
+      <div className="h-64 bg-slate-800 rounded-xl border border-slate-700" />
+      <div className="h-64 bg-slate-800 rounded-xl border border-slate-700" />
     </div>
     {/* Bottom row */}
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 h-48 bg-dark-surface rounded-xl border border-dark-border" />
-      <div className="h-48 bg-dark-surface rounded-xl border border-dark-border" />
+      <div className="lg:col-span-2 h-48 bg-slate-800 rounded-xl border border-slate-700" />
+      <div className="h-48 bg-slate-800 rounded-xl border border-slate-700" />
     </div>
   </div>
 );
@@ -42,11 +42,11 @@ const Skeleton = () => (
 // KPI border-bottom color map
 // ---------------------------------------------------------------------------
 const KPI_BORDER = {
-  blue:   'border-b-primary-500',
-  green:  'border-b-success-500',
-  red:    'border-b-error-500',
-  amber:  'border-b-warning-500',
-  purple: 'border-b-secondary-500',
+  blue:   'border-b-blue-500',
+  green:  'border-b-green-500',
+  red:    'border-b-red-500',
+  amber:  'border-b-amber-500',
+  purple: 'border-b-purple-500',
 };
 
 // ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ const KPI_BORDER = {
 const StatusRow = ({ icon: Icon, label, sub, color }) => (
   <div className="flex items-center justify-between">
     <div className="flex items-center space-x-3 min-w-0">
-      <div className="p-2 bg-dark-elevated/60 rounded-lg shrink-0">
+      <div className="p-2 bg-slate-700/60 rounded-lg shrink-0">
         <Icon className="w-4 h-4 text-slate-300" />
       </div>
       <div className="min-w-0">
@@ -64,9 +64,9 @@ const StatusRow = ({ icon: Icon, label, sub, color }) => (
       </div>
     </div>
     <div className={`w-2.5 h-2.5 rounded-full shrink-0 ml-2 ${
-      color === 'green' ? 'bg-success-500' :
-      color === 'amber' ? 'bg-warning-500' :
-                          'bg-error-500'
+      color === 'green' ? 'bg-green-500' :
+      color === 'amber' ? 'bg-amber-500' :
+                          'bg-red-500'
     }`} />
   </div>
 );
@@ -109,7 +109,7 @@ const Dashboard = () => {
         <p className="text-slate-400 text-center max-w-sm">{error}</p>
         <button
           onClick={fetchStats}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
           Retry
@@ -180,7 +180,7 @@ const Dashboard = () => {
         </div>
         <button
           onClick={fetchStats}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 bg-dark-surface hover:bg-dark-elevated border border-dark-border rounded-lg transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors"
           title="Refresh now"
         >
           <RefreshCw className="w-3.5 h-3.5" />
@@ -226,9 +226,9 @@ const Dashboard = () => {
               <Line
                 type="monotone"
                 dataKey="compliance"
-                stroke="#0ea5e9"
+                stroke="#3b82f6"
                 strokeWidth={2.5}
-                dot={{ r: 4, fill: '#0ea5e9', strokeWidth: 0 }}
+                dot={{ r: 4, fill: '#3b82f6', strokeWidth: 0 }}
                 activeDot={{ r: 6, strokeWidth: 0 }}
               />
             </LineChart>
@@ -246,8 +246,8 @@ const Dashboard = () => {
                 contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: 8 }}
               />
               <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
-              <Bar dataKey="helmet"    name="Helmet ✓"    fill="#10b981" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="no_helmet" name="No Helmet ✗" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="helmet"    name="Helmet ✓"    fill="#22c55e" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="no_helmet" name="No Helmet ✗" fill="#ef4444" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -263,15 +263,15 @@ const Dashboard = () => {
             <h3 className="text-lg font-semibold text-slate-200">Recent Alerts</h3>
             <Link
               to="/alerts"
-              className="text-sm text-primary-400 hover:text-primary-300 transition-colors"
+              className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
             >
               View All →
             </Link>
           </div>
 
           {recentAlerts.length === 0 ? (
-            <div className="bg-dark-surface rounded-xl border border-dark-border p-8 text-center">
-              <Shield className="w-10 h-10 text-success-500 mx-auto mb-2" />
+            <div className="bg-slate-800 rounded-xl border border-slate-700 p-8 text-center">
+              <Shield className="w-10 h-10 text-green-500 mx-auto mb-2" />
               <p className="text-slate-400 text-sm">No active alerts — all workers compliant</p>
             </div>
           ) : (
@@ -287,7 +287,7 @@ const Dashboard = () => {
         <div className="space-y-4">
           {/* System Status */}
           <h3 className="text-lg font-semibold text-slate-200">System Status</h3>
-          <div className="bg-dark-surface rounded-xl border border-dark-border p-5 space-y-4">
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-5 space-y-4">
             <StatusRow
               icon={Server}
               label="Backend"
@@ -328,28 +328,28 @@ const Dashboard = () => {
           <div className="grid grid-cols-2 gap-3">
             <Link
               to="/live"
-              className="flex items-center justify-center gap-2 p-3 bg-gradient-to-r from-primary-600 to-secondary-600 hover:from-primary-500 hover:to-secondary-500 text-white rounded-lg transition-all font-medium text-sm shadow-sm"
+              className="flex items-center justify-center gap-2 p-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-lg transition-all font-medium text-sm shadow-sm"
             >
               <Video className="w-4 h-4" />
               Live Monitor
             </Link>
             <Link
               to="/image"
-              className="flex items-center justify-center gap-2 p-3 bg-dark-elevated hover:bg-slate-600 text-white rounded-lg transition-colors font-medium text-sm border border-dark-border"
+              className="flex items-center justify-center gap-2 p-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors font-medium text-sm border border-slate-600"
             >
               <Upload className="w-4 h-4" />
               Upload Image
             </Link>
             <Link
               to="/analytics"
-              className="flex items-center justify-center gap-2 p-3 bg-dark-elevated hover:bg-slate-600 text-white rounded-lg transition-colors font-medium text-sm border border-dark-border"
+              className="flex items-center justify-center gap-2 p-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors font-medium text-sm border border-slate-600"
             >
               <BarChart2 className="w-4 h-4" />
               Analytics
             </Link>
             <Link
               to="/reports"
-              className="flex items-center justify-center gap-2 p-3 bg-dark-elevated hover:bg-slate-600 text-white rounded-lg transition-colors font-medium text-sm border border-dark-border"
+              className="flex items-center justify-center gap-2 p-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors font-medium text-sm border border-slate-600"
             >
               <Shield className="w-4 h-4" />
               Reports

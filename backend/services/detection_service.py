@@ -120,7 +120,7 @@ def process_image(file_storage, detector, upload_dir: str) -> dict:
 #  Frame detection (live camera)
 # ------------------------------------------------------------------ #
 
-def process_frame(frame_b64: str, detector, camera_id: str = 'Camera 01') -> dict:
+def process_frame(frame_b64: str, detector, camera_id: str = 'Camera 01', confidence: float = None) -> dict:
     """
     Decode a base64 JPEG frame from the browser and run detection.
     Does NOT persist to DB (frames are ephemeral for live mode).
@@ -141,7 +141,7 @@ def process_frame(frame_b64: str, detector, camera_id: str = 'Camera 01') -> dic
     except Exception as e:
         raise ValueError(f"Invalid frame data: {e}")
 
-    result = detector.predict_frame(frame)
+    result = detector.predict_frame(frame, conf=confidence)
     result['camera_id'] = camera_id
     return result
 
@@ -198,15 +198,23 @@ def process_video(file_storage, detector, upload_dir: str) -> dict:
 # ------------------------------------------------------------------ #
 
 def get_detections_paginated(page: int = 1, per_page: int = 20,
-                              status_filter: str = None, session_id: int = None):
-    """Return paginated Detection records."""
+                              status_filter: str = None, session_id: int = None,
+                              search: str = None):
+    """Return paginated Detection records with optional status, session, and search filters."""
     from database.models import Detection
+    from sqlalchemy import or_
 
     query = Detection.query.order_by(Detection.timestamp.desc())
     if status_filter:
         query = query.filter(Detection.status == status_filter)
     if session_id:
         query = query.filter(Detection.session_id == session_id)
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(or_(
+            Detection.class_name.ilike(search_term),
+            Detection.status.ilike(search_term)
+        ))
 
     paginated = query.paginate(page=page, per_page=per_page, error_out=False)
     return {
@@ -218,13 +226,25 @@ def get_detections_paginated(page: int = 1, per_page: int = 20,
     }
 
 
-def get_sessions_paginated(page: int = 1, per_page: int = 20):
-    """Return paginated DetectionSession records."""
+def get_sessions_paginated(page: int = 1, per_page: int = 20,
+                           search: str = None, days: int = None):
+    """Return paginated DetectionSession records with search and days filters."""
     from database.models import DetectionSession
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import or_
 
-    paginated = (DetectionSession.query
-                 .order_by(DetectionSession.created_at.desc())
-                 .paginate(page=page, per_page=per_page, error_out=False))
+    query = DetectionSession.query.order_by(DetectionSession.created_at.desc())
+    if days and days > 0:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        query = query.filter(DetectionSession.created_at >= cutoff)
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(or_(
+            DetectionSession.source.ilike(search_term),
+            DetectionSession.input_type.ilike(search_term)
+        ))
+
+    paginated = query.paginate(page=page, per_page=per_page, error_out=False)
     return {
         'items': [s.to_dict() for s in paginated.items],
         'total': paginated.total,

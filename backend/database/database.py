@@ -59,10 +59,9 @@ def _seed_default_data():
             db.session.add(AppSettings(key=key, value=value))
         logger.info("Seeded default settings.")
 
-    # Historical mock data seeding is DISABLED — fresh start with real data only
-    # To re-enable: uncomment the block below and delete the safeguard.db file
-    # if DetectionSession.query.count() == 0:
-    #     _seed_historical_data()
+    # Seed historical detection data if no sessions exist
+    if DetectionSession.query.count() == 0:
+        _seed_historical_data()
 
     db.session.commit()
 

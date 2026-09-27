@@ -45,6 +45,7 @@ export const deleteSession  = (id)     => api.delete(`/sessions/${id}`);
 
 // ── Alerts ─────────────────────────────────────────────────────────────────
 export const getAlerts    = (params)       => api.get('/alerts', { params });
+export const createAlert  = (data)         => api.post('/alerts', data);
 export const updateAlert  = (id, data)     => api.patch(`/alerts/${id}`, data);
 export const getAlertStats = ()            => api.get('/alerts/stats');
 

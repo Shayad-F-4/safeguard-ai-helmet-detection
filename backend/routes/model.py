@@ -19,7 +19,7 @@ def get_model_info():
     """Return ML model information and current mode."""
     try:
         detector = current_app.config.get('DETECTOR')
-        mode = current_app.config.get('ML_MODE', 'mock')
+        mode = current_app.config.get('ML_MODE', 'yolo')
 
         if detector:
             info = detector.get_model_info()
@@ -34,16 +34,22 @@ def get_model_info():
             'success': True,
             'model': {
                 **info,
-                'display_name': 'YOLOv8n',
+                'display_name': 'YOLOv8n (Helmet Detection)',
                 'model_type': 'Object Detection',
                 'framework': 'Ultralytics YOLO',
                 'deep_learning': 'PyTorch',
                 'dataset': 'Hard Hat Workers / PPE Dataset',
-                'training_platform': 'Google Colab',
+                'training_platform': 'Google Colab (GPU)',
                 'integration': 'Flask ML Service',
                 'input_resolution': '640×640',
                 'current_mode': mode,
                 'is_demo': mode == 'mock',
+                'map50': 97.4,
+                'map50_95': 67.0,
+                'precision': 95.4,
+                'recall': 93.3,
+                'epochs': 50,
+                'classes': ['helmet', 'no_helmet'],
             }
         })
 
@@ -74,6 +80,8 @@ def update_settings():
         if not data:
             return jsonify({'success': False, 'error': 'No settings provided'}), 400
 
+        detector = current_app.config.get('DETECTOR')
+
         for key, value in data.items():
             setting = AppSettings.query.filter_by(key=key).first()
             if setting:
@@ -81,6 +89,14 @@ def update_settings():
                 setting.updated_at = datetime.utcnow()
             else:
                 db.session.add(AppSettings(key=key, value=str(value)))
+
+            # Live update detector threshold
+            if key == 'confidence_threshold' and detector and hasattr(detector, 'confidence_threshold'):
+                try:
+                    detector.confidence_threshold = float(value)
+                    logger.info(f"Updated detector confidence threshold to {value}")
+                except (ValueError, TypeError):
+                    pass
 
         db.session.commit()
         return jsonify({'success': True, 'message': 'Settings updated successfully'})

@@ -27,23 +27,23 @@ const PAGE_TITLES = {
 const ModeBadge = ({ isDemo, systemStatus }) => {
   if (systemStatus === 'offline' || systemStatus === 'connecting') {
     return (
-      <div className="flex items-center gap-1.5 px-3 py-1 bg-error-500/15 text-error-400 border border-error-500/40 rounded-full text-xs font-semibold">
-        <span className="w-1.5 h-1.5 rounded-full bg-error-400 animate-pulse" />
+      <div className="flex items-center gap-1.5 px-3 py-1 bg-red-500/15 text-red-400 border border-red-500/40 rounded-full text-xs font-semibold">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
         OFFLINE
       </div>
     );
   }
   if (isDemo) {
     return (
-      <div className="flex items-center gap-1.5 px-3 py-1 bg-warning-500/15 text-warning-400 border border-warning-500/40 rounded-full text-xs font-semibold">
-        <span className="w-1.5 h-1.5 rounded-full bg-warning-400 animate-pulse" />
+      <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/15 text-amber-400 border border-amber-500/40 rounded-full text-xs font-semibold">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
         DEMO
       </div>
     );
   }
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1 bg-success-500/15 text-success-400 border border-success-500/40 rounded-full text-xs font-semibold">
-      <span className="w-1.5 h-1.5 rounded-full bg-success-400 animate-pulse" />
+    <div className="flex items-center gap-1.5 px-3 py-1 bg-green-500/15 text-green-400 border border-green-500/40 rounded-full text-xs font-semibold">
+      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
       YOLO LIVE
     </div>
   );
@@ -69,7 +69,7 @@ const Navbar = () => {
   const pageTitle = PAGE_TITLES[location.pathname] ?? 'SafeGuard AI';
 
   return (
-    <header className="h-16 bg-dark-surface border-b border-dark-border flex items-center justify-between px-6 shrink-0">
+    <header className="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 shrink-0">
       {/* Left — page title */}
       <div className="flex items-center">
         <h1 className="text-xl font-semibold text-white tracking-tight">{pageTitle}</h1>
@@ -92,19 +92,19 @@ const Navbar = () => {
         <div className={`relative ${activeAlerts > 0 ? 'animate-pulse' : ''}`}>
           <Bell
             className={`w-5 h-5 cursor-pointer transition-colors ${
-              activeAlerts > 0 ? 'text-error-400' : 'text-slate-400 hover:text-slate-200'
+              activeAlerts > 0 ? 'text-red-400' : 'text-slate-400 hover:text-slate-200'
             }`}
           />
           {activeAlerts > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 bg-error-500 text-white text-[10px] font-bold px-1.5 py-px rounded-full min-w-[1.25rem] text-center leading-none">
+            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold px-1.5 py-px rounded-full min-w-[1.25rem] text-center leading-none">
               {activeAlerts}
             </span>
           )}
         </div>
 
         {/* Avatar */}
-        <div className="flex items-center pl-4 border-l border-dark-border">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-600 to-secondary-600 flex items-center justify-center font-bold text-sm text-white select-none">
+        <div className="flex items-center pl-4 border-l border-slate-700">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center font-bold text-sm text-white select-none">
             AD
           </div>
         </div>

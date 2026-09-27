@@ -61,10 +61,12 @@ def detect_frame():
         return jsonify({'success': False, 'error': 'Missing frame data in request body'}), 400
 
     try:
+        conf_val = float(data.get('confidence')) if data.get('confidence') is not None else None
         result = detection_service.process_frame(
             data['frame'],
             _get_detector(),
-            camera_id=data.get('camera_id', 'Camera 01')
+            camera_id=data.get('camera_id', 'Camera 01'),
+            confidence=conf_val
         )
         return jsonify(result)
     except ValueError as e:
@@ -102,8 +104,11 @@ def get_detections():
         per_page = int(request.args.get('per_page', 20))
         status_filter = request.args.get('status')
         session_id = request.args.get('session_id', type=int)
+        search = request.args.get('search')
 
-        result = detection_service.get_detections_paginated(page, per_page, status_filter, session_id)
+        result = detection_service.get_detections_paginated(
+            page, per_page, status_filter=status_filter, session_id=session_id, search=search
+        )
         return jsonify({'success': True, **result})
     except Exception as e:
         logger.error(f"Get detections error: {e}", exc_info=True)
@@ -130,7 +135,9 @@ def get_sessions():
     try:
         page = int(request.args.get('page', 1))
         per_page = int(request.args.get('per_page', 20))
-        result = detection_service.get_sessions_paginated(page, per_page)
+        search = request.args.get('search')
+        days = request.args.get('days', type=int)
+        result = detection_service.get_sessions_paginated(page, per_page, search=search, days=days)
         return jsonify({'success': True, **result})
     except Exception as e:
         logger.error(f"Get sessions error: {e}", exc_info=True)

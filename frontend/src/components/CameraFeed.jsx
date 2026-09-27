@@ -1,35 +1,214 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 
-const CameraFeed = ({ onFrame, isActive, cameraId }) => {
+const CameraFeed = ({
+  onFrame,
+  isActive,
+  isPaused = false,
+  cameraId = 'default',
+  detections = [],
+  frameDimensions = { width: 640, height: 480 },
+}) => {
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const [error, setError] = useState(null);
+  const containerRef = useRef(null);
+  const captureCanvasRef = useRef(null);
+  const overlayCanvasRef = useRef(null);
 
+  const [error, setError] = useState(null);
+  const isProcessingRef = useRef(false);
+  const isPausedRef = useRef(isPaused);
+
+  // Keep isPausedRef in sync
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  // Compute rendered video rectangle inside container (accounting for letterboxing)
+  const getRenderedRect = useCallback(() => {
+    const video = videoRef.current;
+    const container = containerRef.current;
+    if (!video || !container) return null;
+
+    const cRect = container.getBoundingClientRect();
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 480;
+
+    const cRatio = cRect.width / cRect.height;
+    const vRatio = vw / vh;
+
+    let width, height, left, top;
+    if (vRatio > cRatio) {
+      width = cRect.width;
+      height = width / vRatio;
+      left = 0;
+      top = (cRect.height - height) / 2;
+    } else {
+      height = cRect.height;
+      width = height * vRatio;
+      left = (cRect.width - width) / 2;
+      top = 0;
+    }
+
+    return { width, height, left, top, containerW: cRect.width, containerH: cRect.height };
+  }, []);
+
+  // Draw detections onto the overlay canvas
+  const drawBoxes = useCallback(() => {
+    const canvas = overlayCanvasRef.current;
+    if (!canvas) return;
+
+    const rect = getRenderedRect();
+    if (!rect) return;
+
+    canvas.width = rect.containerW;
+    canvas.height = rect.containerH;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!detections || detections.length === 0 || isPausedRef.current) return;
+
+    const srcW = frameDimensions?.width || 640;
+    const srcH = frameDimensions?.height || 480;
+    const scaleX = rect.width / srcW;
+    const scaleY = rect.height / srcH;
+
+    detections.forEach((det) => {
+      const bbox = det.bbox || {};
+      const x1 = rect.left + (bbox.x1 ?? 0) * scaleX;
+      const y1 = rect.top + (bbox.y1 ?? 0) * scaleY;
+      const x2 = rect.left + (bbox.x2 ?? 0) * scaleX;
+      const y2 = rect.top + (bbox.y2 ?? 0) * scaleY;
+      const w = Math.max(0, x2 - x1);
+      const h = Math.max(0, y2 - y1);
+
+      const isHelmet = det.class === 'helmet';
+      const color = isHelmet ? '#22c55e' : '#ef4444';
+      const conf =
+        typeof det.confidence === 'number'
+          ? det.confidence <= 1
+            ? (det.confidence * 100).toFixed(0)
+            : det.confidence.toFixed(0)
+          : '';
+      const label = `${isHelmet ? '✓ Helmet' : '✗ No Helmet'}${conf ? ` ${conf}%` : ''}`;
+
+      // Bounding box border
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(x1, y1, w, h);
+
+      // Semi-transparent box fill
+      ctx.fillStyle = isHelmet ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.15)';
+      ctx.fillRect(x1, y1, w, h);
+
+      // Label background & text
+      const fontSize = Math.max(11, Math.min(14, Math.round(w / 7)));
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      const textMetrics = ctx.measureText(label);
+      const labelW = textMetrics.width + 10;
+      const labelH = fontSize + 8;
+      const labelY = y1 >= labelH ? y1 - labelH : y1;
+
+      ctx.fillStyle = color;
+      ctx.fillRect(x1, labelY, labelW, labelH);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(label, x1 + 5, labelY + fontSize);
+
+      // Worker ID badge
+      if (det.id) {
+        const idLabel = `#${det.id}`;
+        ctx.font = 'bold 11px sans-serif';
+        const idMetrics = ctx.measureText(idLabel);
+        const idW = idMetrics.width + 8;
+        const idH = 18;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(x1 + w - idW, y1 + 2, idW, idH);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(idLabel, x1 + w - idW + 4, y1 + 14);
+      }
+    });
+  }, [detections, frameDimensions, getRenderedRect]);
+
+  // Redraw whenever detections or pause state changes
+  useEffect(() => {
+    drawBoxes();
+  }, [drawBoxes]);
+
+  // Window resize handler for overlay
+  useEffect(() => {
+    const handleResize = () => drawBoxes();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [drawBoxes]);
+
+  // Camera stream and capture loop
   useEffect(() => {
     let stream = null;
     let intervalId = null;
+    let isMounted = true;
 
     const startCamera = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        setError(null);
+        let s = null;
+        try {
+          s = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 } },
+          });
+        } catch (err) {
+          s = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+
+        if (!isMounted) {
+          if (s) s.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        stream = s;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-        }
-        
-        intervalId = setInterval(() => {
-          if (videoRef.current && canvasRef.current && isActive) {
-            const context = canvasRef.current.getContext('2d');
-            canvasRef.current.width = videoRef.current.videoWidth;
-            canvasRef.current.height = videoRef.current.videoHeight;
-            context.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-            const base64Frame = canvasRef.current.toDataURL('image/jpeg', 0.8);
-            if (onFrame) onFrame(base64Frame);
+          try {
+            await videoRef.current.play();
+          } catch (playErr) {
+            console.warn('Video auto-play interrupted:', playErr);
           }
-        }, 500); // 2 FPS
-        
+        }
+
+        // Frame capture loop — every 700ms (~1.4 FPS, ideal for edge/CPU YOLO)
+        intervalId = setInterval(async () => {
+          if (!isMounted || isPausedRef.current || isProcessingRef.current) return;
+          const video = videoRef.current;
+          const canvas = captureCanvasRef.current;
+          if (!video || !canvas || video.readyState < 2 || !video.videoWidth) return;
+
+          try {
+            isProcessingRef.current = true;
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            const maxDim = 640;
+            const scale = Math.min(1, maxDim / Math.max(vw, vh));
+            const targetW = Math.round(vw * scale);
+            const targetH = Math.round(vh * scale);
+
+            canvas.width = targetW;
+            canvas.height = targetH;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, targetW, targetH);
+
+            const base64Frame = canvas.toDataURL('image/jpeg', 0.75);
+            if (onFrame && isMounted) {
+              await onFrame(base64Frame);
+            }
+          } catch (captureErr) {
+            console.error('Frame capture error:', captureErr);
+          } finally {
+            isProcessingRef.current = false;
+          }
+        }, 700);
       } catch (err) {
-        setError('Camera access denied or unavailable.');
-        console.error(err);
+        if (isMounted) {
+          setError('Camera access denied or unavailable: ' + (err.message || 'Unknown error'));
+          console.error('Camera error:', err);
+        }
       }
     };
 
@@ -38,32 +217,61 @@ const CameraFeed = ({ onFrame, isActive, cameraId }) => {
     }
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      isMounted = false;
       if (intervalId) clearInterval(intervalId);
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+      // Clear overlay canvas
+      const oc = overlayCanvasRef.current;
+      if (oc) {
+        const ctx = oc.getContext('2d');
+        ctx.clearRect(0, 0, oc.width, oc.height);
+      }
     };
   }, [isActive, cameraId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="relative w-full h-full bg-black rounded-lg overflow-hidden flex items-center justify-center">
-      {error && <div className="text-red-500 text-center p-4">{error}</div>}
-      <video ref={videoRef} autoPlay playsInline muted className={`max-w-full max-h-full ${isActive ? 'block' : 'hidden'}`} />
-      <canvas ref={canvasRef} className="hidden" />
-      
-      {!isActive && !error && (
-        <div className="text-slate-500 flex flex-col items-center">
-          <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4">
-            <svg className="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-          </div>
-          <p>Camera is offline. Click Start to connect.</p>
+    <div
+      ref={containerRef}
+      className="relative w-full h-full min-h-[360px] bg-slate-950 rounded-lg overflow-hidden flex items-center justify-center select-none"
+    >
+      {error && (
+        <div className="text-red-400 text-sm text-center p-6 max-w-md bg-red-950/40 border border-red-800/50 rounded-lg">
+          {error}
         </div>
       )}
-      
-      {isActive && (
-        <div className="absolute top-4 right-4 flex items-center space-x-2 bg-black/50 px-3 py-1.5 rounded-full text-xs font-bold text-white">
+
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className={`max-w-full max-h-full object-contain ${isActive && !error ? 'block' : 'hidden'}`}
+      />
+
+      {/* Overlay Canvas for Real-time Bounding Boxes */}
+      <canvas
+        ref={overlayCanvasRef}
+        className={`absolute inset-0 pointer-events-none ${isActive && !error ? 'block' : 'hidden'}`}
+      />
+
+      {/* Offscreen Canvas for Frame Capture */}
+      <canvas ref={captureCanvasRef} className="hidden" />
+
+      {/* Live Badge */}
+      {isActive && !error && !isPaused && (
+        <div className="absolute top-4 right-4 flex items-center space-x-2 bg-black/60 backdrop-blur-sm border border-slate-700/50 px-3 py-1.5 rounded-full text-xs font-semibold text-white shadow-lg">
           <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
           <span>LIVE</span>
+        </div>
+      )}
+
+      {/* Paused Badge */}
+      {isActive && !error && isPaused && (
+        <div className="absolute top-4 right-4 flex items-center space-x-2 bg-black/60 backdrop-blur-sm border border-amber-600/50 px-3 py-1.5 rounded-full text-xs font-semibold text-amber-400 shadow-lg">
+          <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+          <span>PAUSED</span>
         </div>
       )}
     </div>

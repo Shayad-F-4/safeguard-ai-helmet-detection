@@ -95,3 +95,34 @@ def alert_stats():
     except Exception as e:
         logger.error(f"Alert stats error: {e}", exc_info=True)
         return jsonify({'success': False, 'error': 'Failed to retrieve alert stats'}), 500
+
+
+@bp.route('/api/alerts', methods=['POST'])
+def create_alert():
+    """Create a new safety alert (e.g. from live camera or edge sensor)."""
+    try:
+        data = request.get_json(silent=True) or {}
+        message = data.get('message', 'Safety violation detected')
+        worker_id = data.get('worker_id', 'Worker #01')
+        camera_name = data.get('camera_name', 'Camera 01')
+        severity = data.get('severity', 'HIGH')
+        raw_conf = float(data.get('confidence', 85.0))
+        confidence = raw_conf / 100.0 if raw_conf > 1.0 else raw_conf
+
+        alert = Alert(
+            message=message,
+            worker_id=worker_id,
+            camera_name=camera_name,
+            severity=severity,
+            confidence=confidence,
+            status='active',
+            created_at=datetime.utcnow()
+        )
+        db.session.add(alert)
+        db.session.commit()
+        return jsonify({'success': True, 'alert': alert.to_dict()}), 201
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Create alert error: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
