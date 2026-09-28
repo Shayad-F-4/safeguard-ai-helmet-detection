@@ -9,6 +9,14 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
+def _to_iso_utc(dt):
+    """Serialize datetime with explicit Z (UTC indicator) so browsers convert to local time accurately."""
+    if not dt:
+        return None
+    s = dt.isoformat()
+    return s if (s.endswith('Z') or '+' in s or '-' in s[-6:]) else s + 'Z'
+
+
 class DetectionSession(db.Model):
     """Represents a single detection session (image, video, or live stream segment)."""
     __tablename__ = 'detection_sessions'
@@ -34,15 +42,15 @@ class DetectionSession(db.Model):
             'id': self.id,
             'input_type': self.input_type,
             'source': self.source,
-            'start_time': self.start_time.isoformat() if self.start_time else None,
-            'end_time': self.end_time.isoformat() if self.end_time else None,
+            'start_time': _to_iso_utc(self.start_time),
+            'end_time': _to_iso_utc(self.end_time),
             'total_workers': self.total_workers,
             'helmet_count': self.helmet_count,
             'no_helmet_count': self.no_helmet_count,
             'compliance_rate': round(self.compliance_rate, 1),
             'average_confidence': round(self.average_confidence, 1),
             'average_fps': round(self.average_fps, 1),
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': _to_iso_utc(self.created_at),
         }
 
 
@@ -77,7 +85,7 @@ class Detection(db.Model):
                 'x2': self.x2,
                 'y2': self.y2,
             },
-            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+            'timestamp': _to_iso_utc(self.timestamp),
         }
 
 
@@ -106,8 +114,8 @@ class Alert(db.Model):
             'camera_name': self.camera_name,
             'confidence': round(self.confidence if self.confidence > 1 else self.confidence * 100, 1) if self.confidence is not None else 0,
             'status': self.status,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None,
+            'created_at': _to_iso_utc(self.created_at),
+            'resolved_at': _to_iso_utc(self.resolved_at),
         }
 
 
@@ -132,8 +140,8 @@ class Camera(db.Model):
             'status': self.status,
             'source': self.source,
             'fps': self.fps,
-            'last_active': self.last_active.isoformat() if self.last_active else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_active': _to_iso_utc(self.last_active),
+            'created_at': _to_iso_utc(self.created_at),
         }
 
 
@@ -150,7 +158,7 @@ class AppSettings(db.Model):
         return {
             'key': self.key,
             'value': self.value,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'updated_at': _to_iso_utc(self.updated_at),
         }
 
 
@@ -170,5 +178,5 @@ class User(db.Model):
             'name': self.name,
             'email': self.email,
             'role': self.role,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': _to_iso_utc(self.created_at),
         }

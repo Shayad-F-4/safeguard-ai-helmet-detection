@@ -99,8 +99,10 @@ def alert_stats():
 
 @bp.route('/api/alerts', methods=['POST'])
 def create_alert():
-    """Create a new safety alert (e.g. from live camera or edge sensor)."""
+    """Create a new safety alert and link to today's live DetectionSession."""
     try:
+        from database.models import DetectionSession, Detection
+
         data = request.get_json(silent=True) or {}
         message = data.get('message', 'Safety violation detected')
         worker_id = data.get('worker_id', 'Worker #01')
@@ -109,14 +111,64 @@ def create_alert():
         raw_conf = float(data.get('confidence', 85.0))
         confidence = raw_conf / 100.0 if raw_conf > 1.0 else raw_conf
 
+        now = datetime.utcnow()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Synchronize with today's live session for this camera
+        session = DetectionSession.query.filter(
+            DetectionSession.input_type == 'live',
+            DetectionSession.source == camera_name,
+            DetectionSession.created_at >= today_start
+        ).order_by(DetectionSession.created_at.desc()).first()
+
+        req_workers = int(data.get('workers', 1) or 1)
+        req_helmets = int(data.get('helmet', 0) or 0)
+
+        if not session:
+            session = DetectionSession(
+                input_type='live',
+                source=camera_name,
+                start_time=now,
+                end_time=now,
+                total_workers=max(req_workers, 1),
+                helmet_count=req_helmets,
+                no_helmet_count=1,
+                compliance_rate=round((req_helmets / max(req_workers, 1)) * 100, 1),
+                average_confidence=confidence,
+                average_fps=float(data.get('fps', 30.0) or 30.0),
+                created_at=now,
+            )
+            db.session.add(session)
+            db.session.flush()
+        else:
+            session.total_workers = max(session.total_workers + 1, req_workers)
+            session.helmet_count = max(session.helmet_count, req_helmets)
+            session.no_helmet_count += 1
+            session.end_time = now
+            if session.total_workers > 0:
+                session.compliance_rate = round((session.helmet_count / session.total_workers) * 100, 1)
+
+        # Create Detection record
+        detection = Detection(
+            session_id=session.id,
+            class_name='no_helmet',
+            status='violation',
+            confidence=confidence,
+            timestamp=now,
+        )
+        db.session.add(detection)
+        db.session.flush()
+
+        # Create Alert
         alert = Alert(
+            detection_id=detection.id,
             message=message,
             worker_id=worker_id,
             camera_name=camera_name,
             severity=severity,
             confidence=confidence,
             status='active',
-            created_at=datetime.utcnow()
+            created_at=now
         )
         db.session.add(alert)
         db.session.commit()

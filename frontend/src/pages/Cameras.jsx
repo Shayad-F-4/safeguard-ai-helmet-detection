@@ -111,6 +111,9 @@ const LiveInspectModal = ({ cam, onClose, onOpenLiveMonitoring }) => {
               camera_name: cam.name,
               severity: 'HIGH',
               confidence: 88,
+              workers: s.workers || 1,
+              helmet: s.helmet || 0,
+              fps: Math.round(d.fps || 30),
             }).catch(console.error);
           }
         }
@@ -163,6 +166,9 @@ const LiveInspectModal = ({ cam, onClose, onOpenLiveMonitoring }) => {
                 camera_name: cam.name,
                 severity: 'HIGH',
                 confidence: 88,
+                workers: s.workers || 1,
+                helmet: s.helmet || 0,
+                fps: Math.round(d.fps || cam.fps || 30),
               }).catch(console.error);
             }
           }

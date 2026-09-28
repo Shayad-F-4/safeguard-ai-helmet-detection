@@ -18,12 +18,13 @@ const Alerts = () => {
   const [alerts, setAlerts]       = useState([]);
   const [counts, setCounts]       = useState({});
   const [loading, setLoading]     = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const [error, setError]         = useState(null);
   const [actionId, setActionId]   = useState(null); // id of alert being updated
 
   // ─── Fetch ────────────────────────────────────────────────────────────────────
-  const fetchAlerts = useCallback(async () => {
-    setLoading(true);
+  const fetchAlerts = useCallback(async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     setError(null);
     try {
       const params = {};
@@ -37,15 +38,24 @@ const Alerts = () => {
       setCounts(cnts);
     } catch (err) {
       console.error('Failed to fetch alerts:', err);
-      setError('Failed to load alerts. Please try again.');
+      if (!isBackground) setError('Failed to load alerts. Please try again.');
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   }, [filter]);
 
   useEffect(() => {
     fetchAlerts();
   }, [fetchAlerts]);
+
+  // Real-time polling every 4 seconds
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(() => {
+      fetchAlerts(true);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, fetchAlerts]);
 
   // ─── Actions ──────────────────────────────────────────────────────────────────
   const handleStatusUpdate = async (id, status) => {
@@ -123,9 +133,9 @@ const Alerts = () => {
           })}
         </div>
 
-        {/* Search + refresh */}
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <div className="relative flex-1 md:w-64">
+        {/* Search + auto-sync + refresh */}
+        <div className="flex items-center gap-2.5 w-full md:w-auto">
+          <div className="relative flex-1 md:w-56">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
             <input
               type="text"
@@ -135,8 +145,22 @@ const Alerts = () => {
               className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
+
           <button
-            onClick={fetchAlerts}
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+              autoRefresh
+                ? 'bg-green-500/15 text-green-300 border-green-500/30'
+                : 'bg-slate-700 text-slate-400 border-slate-600'
+            }`}
+            title="Real-time live alert stream"
+          >
+            <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-green-400 animate-pulse' : 'bg-slate-500'}`} />
+            Auto-Sync {autoRefresh ? 'ON' : 'OFF'}
+          </button>
+
+          <button
+            onClick={() => fetchAlerts(false)}
             disabled={loading}
             title="Refresh"
             className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors disabled:opacity-50"

@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, Clock, CheckCircle, Video } from 'lucide-react';
+import { formatDateTime, timeAgo, formatTimestamp } from '../utils/helpers';
 
 const severityConfig = {
   HIGH:   { cls: 'text-red-400 border-red-500/50 bg-red-500/10',      dot: 'bg-red-500' },
@@ -44,14 +45,6 @@ const AlertCard = ({ alert, onAcknowledge, onResolve, onViewDetails, compact = f
   const rawConf = typeof alert.confidence === 'number' ? alert.confidence : 0;
   const confidencePct = rawConf <= 1 ? rawConf * 100 : rawConf;
 
-  // ─── Time display ─────────────────────────────────────────────────────────────
-  const timeStr = timestamp
-    ? new Date(timestamp).toLocaleTimeString([], { hour12: false })
-    : '';
-  const dateStr = timestamp
-    ? new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    : '';
-
   // ─── Resolve button visibility: active OR acknowledged ────────────────────────
   const showAck     = alert.status === 'active'                              && !!onAcknowledge;
   const showResolve = (alert.status === 'active' || alert.status === 'acknowledged') && !!onResolve;
@@ -73,13 +66,14 @@ const AlertCard = ({ alert, onAcknowledge, onResolve, onViewDetails, compact = f
             {severity}
           </span>
           {!compact && timestamp && (
-            <span className="text-xs text-slate-400 flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {dateStr} {timeStr}
+            <span className="text-xs text-slate-400 flex items-center gap-1.5">
+              <Clock className="w-3 h-3 text-slate-500" />
+              <span>{formatDateTime(timestamp)}</span>
+              <span className="text-slate-500 font-medium">({timeAgo(timestamp)})</span>
             </span>
           )}
-          {compact && timeStr && (
-            <span className="text-xs text-slate-500">{timeStr}</span>
+          {compact && timestamp && (
+            <span className="text-xs text-slate-400 font-medium">{timeAgo(timestamp)}</span>
           )}
         </div>
 

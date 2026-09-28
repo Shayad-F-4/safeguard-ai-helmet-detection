@@ -5,7 +5,8 @@ import {
   LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import { BarChart2, TrendingUp, Shield, AlertTriangle, Cpu, Clock } from 'lucide-react';
+import { BarChart2, TrendingUp, Shield, AlertTriangle, Cpu, Clock, RefreshCw } from 'lucide-react';
+import { formatDateTime, timeAgo } from '../utils/helpers';
 
 const TOOLTIP_STYLE = { backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' };
 
@@ -13,20 +14,34 @@ const Analytics = () => {
   const [period, setPeriod] = useState('weekly');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  const fetchAnalytics = async () => {
-    setLoading(true);
+  const fetchAnalytics = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const res = await getAnalytics(period);
       setData(res.data);
+      setLastUpdated(new Date());
     } catch (err) {
       console.error('Analytics error:', err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
-  useEffect(() => { fetchAnalytics(); }, [period]);
+  useEffect(() => {
+    fetchAnalytics();
+  }, [period]);
+
+  // Background auto-refresh every 10s
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(() => {
+      fetchAnalytics(true);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, period]);
 
   const summary = data?.summary || {};
 
@@ -35,21 +50,56 @@ const Analytics = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Analytics</h1>
-          <p className="text-slate-400 text-sm mt-1">Safety performance insights from detection history</p>
+          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
+            <TrendingUp className="w-6 h-6 text-blue-500" />
+            Safety Analytics & Trends
+          </h1>
+          <p className="text-slate-400 text-xs sm:text-sm mt-1">
+            Real-time compliance trends, violation patterns, and camera statistics
+            {lastUpdated && (
+              <span className="text-slate-500 ml-2">
+                · Updated: {formatDateTime(lastUpdated)} ({timeAgo(lastUpdated)})
+              </span>
+            )}
+          </p>
         </div>
-        <div className="flex gap-1 p-1 bg-slate-800 rounded-lg border border-slate-700">
-          {['daily', 'weekly', 'monthly'].map(p => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
-                period === p ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              {p}
-            </button>
-          ))}
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              autoRefresh
+                ? 'bg-green-500/15 text-green-300 border-green-500/30'
+                : 'bg-slate-700 text-slate-400 border-slate-600'
+            }`}
+            title="Auto-sync analytics with live detections"
+          >
+            <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-green-400 animate-pulse' : 'bg-slate-500'}`} />
+            Auto-Sync {autoRefresh ? 'ON' : 'OFF'}
+          </button>
+
+          <button
+            onClick={() => fetchAnalytics(false)}
+            disabled={loading}
+            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition"
+            title="Refresh analytics data"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+
+          <div className="flex gap-1 p-1 bg-slate-800 rounded-lg border border-slate-700">
+            {['daily', 'weekly', 'monthly'].map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-3 py-1 rounded-md text-xs font-medium capitalize transition-colors ${
+                  period === p ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

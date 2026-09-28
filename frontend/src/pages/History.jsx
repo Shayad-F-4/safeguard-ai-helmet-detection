@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DataTable from '../components/DataTable';
-import { Calendar, Download, Search, Trash2, Eye } from 'lucide-react';
+import { Calendar, Download, Search, Trash2, Eye, RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
+import { formatDate, formatTimestamp, timeAgo } from '../utils/helpers';
 
 const History = () => {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -15,8 +17,8 @@ const History = () => {
   const [days, setDays] = useState('');
   const PER_PAGE = 15;
 
-  const fetchSessions = useCallback(async () => {
-    setLoading(true);
+  const fetchSessions = useCallback(async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const params = { page, per_page: PER_PAGE };
       if (search.trim()) params.search = search.trim();
@@ -29,7 +31,7 @@ const History = () => {
     } catch (err) {
       console.error('History fetch error:', err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   }, [page, search, days]);
 
@@ -39,6 +41,15 @@ const History = () => {
     }, 250);
     return () => clearTimeout(timer);
   }, [fetchSessions]);
+
+  // Live auto-refresh polling every 8s
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(() => {
+      fetchSessions(true);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, fetchSessions]);
 
   const handleDelete = async (id) => {
     if (!window.confirm(`Delete session #${id} and all its detections?`)) return;
@@ -58,7 +69,7 @@ const History = () => {
     const headers = ['Session ID', 'Date', 'Type', 'Source', 'Workers', 'Helmet', 'No Helmet', 'Compliance Rate %', 'Avg Confidence %'];
     const rows = sessions.map(s => [
       s.id,
-      `"${new Date(s.created_at).toISOString()}"`,
+      `"${s.created_at || ''}"`,
       `"${s.input_type || ''}"`,
       `"${(s.source || '').replace(/"/g, '""')}"`,
       s.total_workers ?? 0,
@@ -84,17 +95,16 @@ const History = () => {
       cell: (row) => <span className="font-mono text-blue-400 font-semibold">#{row.id}</span>,
     },
     {
-      header: 'Date',
+      header: 'Date & Time',
       accessor: 'created_at',
-      cell: (row) => {
-        const d = new Date(row.created_at);
-        return (
-          <div>
-            <div className="text-slate-200 text-sm font-medium">{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-            <div className="text-slate-500 text-xs font-mono">{d.toLocaleTimeString([], { hour12: false })}</div>
+      cell: (row) => (
+        <div>
+          <div className="text-slate-200 text-xs font-semibold">{formatDate(row.created_at)}</div>
+          <div className="text-slate-400 text-[11px] font-mono mt-0.5">
+            {formatTimestamp(row.created_at)} <span className="text-slate-500">({timeAgo(row.created_at)})</span>
           </div>
-        );
-      },
+        </div>
+      ),
     },
     {
       header: 'Type',

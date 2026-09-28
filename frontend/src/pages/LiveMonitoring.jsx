@@ -212,6 +212,9 @@ const LiveMonitoring = () => {
                   camera_name: currentCamObj.name,
                   severity: 'HIGH',
                   confidence: conf,
+                  workers: d.summary?.workers || 1,
+                  helmet: d.summary?.helmet || 0,
+                  fps: currentCamObj.fps || 30,
                 }).then(() => {
                   if (refreshAlerts) refreshAlerts();
                 }).catch(console.error);
@@ -299,6 +302,9 @@ const LiveMonitoring = () => {
                 camera_name: selectedCameraRef.current,
                 severity: 'HIGH',
                 confidence: conf,
+                workers: data.summary?.workers || 1,
+                helmet: data.summary?.helmet || 0,
+                fps: Math.round(data.fps || 30),
               }).then(() => {
                 if (refreshAlerts) refreshAlerts();
               }).catch(console.error);

@@ -5,27 +5,44 @@ export const formatConfidence = (value) => {
   return `${pct.toFixed(1)}%`;
 };
 
+export const parseDateUtc = (iso) => {
+  if (!iso) return null;
+  if (iso instanceof Date) return iso;
+  if (typeof iso === 'number') return new Date(iso);
+  let str = String(iso).trim();
+  if (str.includes('T') && !str.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(str)) {
+    str += 'Z';
+  }
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? new Date(iso) : d;
+};
+
 export const formatTimestamp = (iso) => {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleTimeString([], { hour12: false });
+  const d = parseDateUtc(iso);
+  if (!d) return '—';
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 };
 
 export const formatDate = (iso) => {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-US', {
+  const d = parseDateUtc(iso);
+  if (!d) return '—';
+  return d.toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
   });
 };
 
 export const formatDateTime = (iso) => {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${d.toLocaleTimeString([], { hour12: false })}`;
+  const d = parseDateUtc(iso);
+  if (!d) return '—';
+  return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
 };
 
 export const timeAgo = (iso) => {
-  if (!iso) return '—';
-  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  const d = parseDateUtc(iso);
+  if (!d) return '—';
+  const diffMs = Date.now() - d.getTime();
+  const secs = Math.floor(Math.max(0, diffMs) / 1000);
+  if (secs < 15) return 'Just now';
   if (secs < 60) return `${secs}s ago`;
   if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
   if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
