@@ -15,6 +15,7 @@ import os
 import time
 import logging
 import numpy as np
+import torch
 
 from ml_service.base_detector import HelmetDetector
 
@@ -88,12 +89,13 @@ class YOLOHelmetDetector(HelmetDetector):
         return self._build_response(detections, w, h, inference_ms, fps, mode='yolo')
 
     def predict_frame(self, frame_array, conf: float = None) -> dict:
-        """Run YOLO inference on a live camera frame."""
+        """Run YOLO inference on a live camera frame with fast CPU optimization."""
         h, w = frame_array.shape[:2]
         start = time.time()
         c = conf if conf is not None else self.confidence_threshold
 
-        results = self.model(frame_array, conf=c, verbose=False)
+        with torch.inference_mode():
+            results = self.model(frame_array, conf=c, verbose=False, imgsz=480)
         inference_ms = (time.time() - start) * 1000
         fps = 1000 / inference_ms if inference_ms > 0 else 0.0
 

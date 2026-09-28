@@ -92,6 +92,7 @@ const LiveMonitoring = () => {
   const confidenceThresholdRef = useRef(0.45);
   const selectedCameraRef = useRef('Camera 01');
   const lastAlertTimeRef = useRef(0);
+  const consecutiveErrorsRef = useRef(0);
 
   // Sync refs
   useEffect(() => {
@@ -239,12 +240,16 @@ const LiveMonitoring = () => {
   }, [isActive, isIpCam, currentCamObj, refreshAlerts]);
 
   // ---- Frame handler (called by local CameraFeed) ----
-  const handleFrame = useCallback(async (base64) => {
+  const handleFrame = useCallback(async (base64, dimensions) => {
     if (isPausedRef.current) return;
+
+    if (dimensions?.width && dimensions?.height) {
+      setFrameDimensions(dimensions);
+    }
 
     try {
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Inference timeout (>4000ms)')), 4000)
+        setTimeout(() => reject(new Error('Inference request timed out')), 15000)
       );
 
       const res = await Promise.race([
@@ -257,6 +262,7 @@ const LiveMonitoring = () => {
       ]);
 
       if (res.data && res.data.success !== false) {
+        consecutiveErrorsRef.current = 0;
         setApiError(null);
         const data = res.data;
         setFrameCount((n) => n + 1);
@@ -313,9 +319,12 @@ const LiveMonitoring = () => {
         }
       }
     } catch (err) {
-      console.error('Frame detection error:', err);
-      const msg = err.response?.data?.error || err.message || 'Cannot reach backend API';
-      setApiError(msg);
+      console.warn('Frame detection skipped/lagging:', err.message);
+      consecutiveErrorsRef.current += 1;
+      if (consecutiveErrorsRef.current >= 3) {
+        const msg = err.response?.data?.error || err.message || 'Cannot reach backend API';
+        setApiError(`Inference lag: ${msg}`);
+      }
     }
   }, [refreshAlerts]);
 

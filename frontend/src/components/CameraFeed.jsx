@@ -143,7 +143,8 @@ const CameraFeed = ({
   // Camera stream and capture loop
   useEffect(() => {
     let stream = null;
-    let intervalId = null;
+    let captureTimer = null;
+    let isLoopActive = true;
     let isMounted = true;
 
     const startCamera = async () => {
@@ -173,37 +174,49 @@ const CameraFeed = ({
           }
         }
 
-        // Frame capture loop — every 700ms (~1.4 FPS, ideal for edge/CPU YOLO)
-        intervalId = setInterval(async () => {
-          if (!isMounted || isPausedRef.current || isProcessingRef.current) return;
-          const video = videoRef.current;
-          const canvas = captureCanvasRef.current;
-          if (!video || !canvas || video.readyState < 2 || !video.videoWidth) return;
+        // Adaptive sequential frame capture loop
+        // Avoids flooding Render CPU and drastically minimizes WAN transfer latency
 
-          try {
-            isProcessingRef.current = true;
-            const vw = video.videoWidth;
-            const vh = video.videoHeight;
-            const maxDim = 640;
-            const scale = Math.min(1, maxDim / Math.max(vw, vh));
-            const targetW = Math.round(vw * scale);
-            const targetH = Math.round(vh * scale);
+        const captureNextFrame = async () => {
+          if (!isMounted || !isLoopActive) return;
 
-            canvas.width = targetW;
-            canvas.height = targetH;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, targetW, targetH);
+          if (!isPausedRef.current) {
+            const video = videoRef.current;
+            const canvas = captureCanvasRef.current;
+            if (video && canvas && video.readyState >= 2 && video.videoWidth > 0) {
+              try {
+                const vw = video.videoWidth;
+                const vh = video.videoHeight;
+                // 480px width max: ~25KB payload (7x smaller than 640px @ 0.75)
+                // Minimizes international latency to Render while preserving full YOLO accuracy
+                const maxDim = 480;
+                const scale = Math.min(1, maxDim / Math.max(vw, vh));
+                const targetW = Math.round(vw * scale);
+                const targetH = Math.round(vh * scale);
 
-            const base64Frame = canvas.toDataURL('image/jpeg', 0.75);
-            if (onFrame && isMounted) {
-              await onFrame(base64Frame);
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, targetW, targetH);
+
+                const base64Frame = canvas.toDataURL('image/jpeg', 0.6);
+                if (onFrame && isMounted && isLoopActive) {
+                  await onFrame(base64Frame, { width: targetW, height: targetH });
+                }
+              } catch (captureErr) {
+                console.error('Frame capture error:', captureErr);
+              }
             }
-          } catch (captureErr) {
-            console.error('Frame capture error:', captureErr);
-          } finally {
-            isProcessingRef.current = false;
           }
-        }, 700);
+
+          // Schedule next frame ONLY after the previous one finishes + 400ms buffer
+          if (isMounted && isLoopActive) {
+            captureTimer = setTimeout(captureNextFrame, 400);
+          }
+        };
+
+        // Start capture loop
+        captureTimer = setTimeout(captureNextFrame, 500);
       } catch (err) {
         if (isMounted) {
           setError('Camera access denied or unavailable: ' + (err.message || 'Unknown error'));
@@ -218,7 +231,8 @@ const CameraFeed = ({
 
     return () => {
       isMounted = false;
-      if (intervalId) clearInterval(intervalId);
+      isLoopActive = false;
+      if (captureTimer) clearTimeout(captureTimer);
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
