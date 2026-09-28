@@ -1,0 +1,46 @@
+services:
+  # Python Flask + YOLO Backend Service
+  - type: web
+    name: safeguard-ai-backend
+    env: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: "pip install --upgrade pip && pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt"
+    startCommand: "gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 app:app"
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: ML_MODE
+        value: yolo
+      - key: MODEL_PATH
+        value: models/best.pt
+      - key: CONFIDENCE_THRESHOLD
+        value: "0.50"
+      - key: YOLO_CLASS_NAMES
+        value: "helmet,no_helmet"
+      - key: MAX_UPLOAD_SIZE_MB
+        value: "100"
+      - key: SECRET_KEY
+        generateValue: true
+
+  # React Frontend Static Site
+  - type: web
+    name: safeguard-ai-frontend
+    env: static
+    region: oregon
+    plan: free
+    rootDir: frontend
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: "./dist"
+    routes:
+      - type: rewrite
+        source: "/*"
+        destination: "/index.html"
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: safeguard-ai-backend
+          envVarKey: RENDER_EXTERNAL_URL
+          # Appends /api to the backend URL

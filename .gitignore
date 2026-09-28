@@ -16,6 +16,7 @@ backend/instance/
 backend/uploads/*
 !backend/uploads/.gitkeep
 backend/models/*.pt
+!backend/models/best.pt
 *.db
 
 # Node / Frontend

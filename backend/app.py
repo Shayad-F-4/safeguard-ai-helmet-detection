@@ -134,37 +134,53 @@ def create_app():
         logger.error(f"Internal server error: {e}")
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
-    @app.route('/')
-    def root():
-        return jsonify({
-            'status': 'online',
-            'service': 'SafeGuard AI Backend API',
-            'version': '1.0.0',
-            'mode': app.config.get('ML_MODE', 'yolo'),
-            'frontend_url': 'http://localhost:5173',
-            'endpoints': {
-                'health': '/api/health',
-                'dashboard': '/api/dashboard/stats',
-                'detect_image': '/api/detect/image',
-                'detect_frame': '/api/detect/frame',
-                'detect_video': '/api/detect/video',
-                'alerts': '/api/alerts',
-                'analytics': '/api/analytics',
-                'cameras': '/api/cameras',
-                'model': '/api/model',
-                'settings': '/api/settings',
-            }
-        })
+    # Optional: Serve production frontend build if available (all-in-one hosting)
+    dist_dir = os.path.join(os.path.dirname(__file__), 'dist')
+    frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist'))
+    static_build_dir = dist_dir if os.path.exists(dist_dir) else (frontend_dist if os.path.exists(frontend_dist) else None)
 
-    logger.info(f"SafeGuard AI backend ready | ML_MODE={active_mode} | Port=5000")
+    if static_build_dir:
+        logger.info(f"Serving production frontend from: {static_build_dir}")
+
+        @app.route('/', defaults={'path': ''})
+        @app.route('/<path:path>')
+        def serve_frontend(path):
+            if path and os.path.exists(os.path.join(static_build_dir, path)):
+                return send_from_directory(static_build_dir, path)
+            return send_from_directory(static_build_dir, 'index.html')
+    else:
+        @app.route('/')
+        def root():
+            return jsonify({
+                'status': 'online',
+                'service': 'SafeGuard AI Backend API',
+                'version': '1.0.0',
+                'mode': app.config.get('ML_MODE', 'yolo'),
+                'frontend_url': os.getenv('FRONTEND_URL', 'http://localhost:5173'),
+                'endpoints': {
+                    'health': '/api/health',
+                    'dashboard': '/api/dashboard/stats',
+                    'detect_image': '/api/detect/image',
+                    'detect_frame': '/api/detect/frame',
+                    'detect_video': '/api/detect/video',
+                    'alerts': '/api/alerts',
+                    'analytics': '/api/analytics',
+                    'cameras': '/api/cameras',
+                    'model': '/api/model',
+                    'settings': '/api/settings',
+                }
+            })
+
+    logger.info(f"SafeGuard AI backend ready | ML_MODE={active_mode}")
     return app
 
 
 # ------------------------------------------------------------------ #
-#  Entry point
+#  WSGI Application Instance (for Gunicorn / uWSGI / Cloud Hosting)
 # ------------------------------------------------------------------ #
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV', 'development') == 'development'
     logger.info(f"Starting SafeGuard AI on http://localhost:{port}")
