@@ -17,15 +17,17 @@ bp = Blueprint('cameras', __name__)
 
 
 def normalize_camera_source(source: str) -> str:
-    """Normalize IP camera URLs (e.g. Android IP Webcam app addresses)."""
+    """Normalize IP camera URLs (e.g. Android IP Webcam app addresses and public tunnels)."""
     if not source or source.strip().lower() in ('webcam', 'default', 'camera 01'):
         return 'webcam'
     s = source.strip()
-    if not (s.startswith('http://') or s.startswith('https://') or s.startswith('rtsp://')):
+    if not (s.startswith('http://') or s.startswith('https://') or s.startswith('rtsp://') or s.startswith('rtmp://')):
         s = 'http://' + s
-    # IP Webcam app on Android serves video at /video
-    if ':8080' in s and not (s.endswith('/video') or s.endswith('/shot.jpg')):
-        s = s.rstrip('/') + '/video'
+    # IP Webcam app on Android (or tunnel forwarding it) serves video at /video
+    has_stream_path = any(s.endswith(p) for p in ['/video', '/shot.jpg', '/stream', '.mjpg', '.mjpeg', '.h264'])
+    if not has_stream_path:
+        if ':8080' in s or any(t in s for t in ['ngrok', 'pinggy', 'localtunnel', 'localto.net', 'localhost.run', 'serveo']):
+            s = s.rstrip('/') + '/video'
     return s
 
 
@@ -136,6 +138,15 @@ def test_camera(camera_id):
         # Test remote IP or RTSP stream
         import cv2
         cap = cv2.VideoCapture(source)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+        if not cap.isOpened() and source.endswith('/video'):
+            alt_source = source[:-6] + '/shot.jpg'
+            alt_cap = cv2.VideoCapture(alt_source)
+            if alt_cap.isOpened():
+                cap = alt_cap
+                source = alt_source
+
         if not cap.isOpened():
             camera.status = 'inactive'
             db.session.commit()
