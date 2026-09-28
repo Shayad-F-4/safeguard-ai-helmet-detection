@@ -95,7 +95,8 @@ class YOLOHelmetDetector(HelmetDetector):
         c = conf if conf is not None else self.confidence_threshold
 
         with torch.inference_mode():
-            results = self.model(frame_array, conf=c, verbose=False, imgsz=480)
+            # imgsz=320 gives ~30ms inference on CPU (vs 70ms+ on 480/640) for real-time responsiveness
+            results = self.model(frame_array, conf=c, verbose=False, imgsz=320)
         inference_ms = (time.time() - start) * 1000
         fps = 1000 / inference_ms if inference_ms > 0 else 0.0
 

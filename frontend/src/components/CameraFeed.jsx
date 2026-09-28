@@ -187,9 +187,9 @@ const CameraFeed = ({
               try {
                 const vw = video.videoWidth;
                 const vh = video.videoHeight;
-                // 480px width max: ~25KB payload (7x smaller than 640px @ 0.75)
-                // Minimizes international latency to Render while preserving full YOLO accuracy
-                const maxDim = 480;
+                // 352px width max: ~10KB payload (dramatically lowers WAN transfer latency)
+                // Minimizes roundtrip lag to ~150-250ms while preserving full YOLO accuracy
+                const maxDim = 352;
                 const scale = Math.min(1, maxDim / Math.max(vw, vh));
                 const targetW = Math.round(vw * scale);
                 const targetH = Math.round(vh * scale);
@@ -199,7 +199,7 @@ const CameraFeed = ({
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(video, 0, 0, targetW, targetH);
 
-                const base64Frame = canvas.toDataURL('image/jpeg', 0.6);
+                const base64Frame = canvas.toDataURL('image/jpeg', 0.52);
                 if (onFrame && isMounted && isLoopActive) {
                   await onFrame(base64Frame, { width: targetW, height: targetH });
                 }
@@ -209,14 +209,14 @@ const CameraFeed = ({
             }
           }
 
-          // Schedule next frame ONLY after the previous one finishes + 400ms buffer
+          // Schedule next frame immediately after current finishes (60ms micro-pause for smooth UI)
           if (isMounted && isLoopActive) {
-            captureTimer = setTimeout(captureNextFrame, 400);
+            captureTimer = setTimeout(captureNextFrame, 60);
           }
         };
 
         // Start capture loop
-        captureTimer = setTimeout(captureNextFrame, 500);
+        captureTimer = setTimeout(captureNextFrame, 100);
       } catch (err) {
         if (isMounted) {
           setError('Camera access denied or unavailable: ' + (err.message || 'Unknown error'));
