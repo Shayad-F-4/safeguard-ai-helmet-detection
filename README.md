@@ -139,6 +139,10 @@ When your friend finishes training:
     "compliance_rate": 100.0
   }
 }
+
+
+
+https://safeguard-ai-helmet-detection-26lf9u1ng.vercel.app/
 ```
 
 ---
