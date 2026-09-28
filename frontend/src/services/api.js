@@ -58,7 +58,9 @@ export const getCameras    = ()           => api.get('/cameras');
 export const createCamera  = (data)       => api.post('/cameras', data);
 export const updateCamera  = (id, data)   => api.put(`/cameras/${id}`, data);
 export const deleteCamera  = (id)         => api.delete(`/cameras/${id}`);
-export const testCamera    = (id)         => api.post(`/cameras/${id}/test`);
+export const testCamera       = (id)         => api.post(`/cameras/${id}/test`);
+export const getCameraSnapshot = (id, params) => api.get(`/cameras/${id}/snapshot`, { params });
+export const getCameraFeedUrl  = (id)         => `${api.defaults.baseURL}/cameras/${id}/feed`;
 
 // ── Model & Settings ───────────────────────────────────────────────────────
 export const getModelInfo     = ()        => api.get('/model');
