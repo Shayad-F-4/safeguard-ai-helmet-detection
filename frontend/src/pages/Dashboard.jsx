@@ -82,8 +82,12 @@ const Dashboard = () => {
   const fetchStats = async () => {
     try {
       const res = await getDashboardStats();
-      setStats(res.data);
-      setError(null);
+      if (res.data && typeof res.data === 'object') {
+        setStats(res.data);
+        setError(null);
+      } else {
+        throw new Error('Invalid dashboard stats response');
+      }
     } catch (err) {
       console.error('Dashboard stats error:', err);
       setError('Could not connect to the backend. Is the Flask server running?');

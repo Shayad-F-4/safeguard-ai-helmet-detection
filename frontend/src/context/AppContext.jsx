@@ -12,9 +12,12 @@ export const AppProvider = ({ children }) => {
   const fetchHealth = async () => {
     try {
       const res = await checkHealth();
-      // API returns is_demo (snake_case), not isDemo
-      setIsDemo(res.data.is_demo ?? true);
-      setSystemStatus('online');
+      if (res.data && typeof res.data === 'object') {
+        setIsDemo(res.data.is_demo ?? true);
+        setSystemStatus('online');
+      } else {
+        setSystemStatus('offline');
+      }
     } catch (err) {
       setSystemStatus('offline');
     }
@@ -23,7 +26,9 @@ export const AppProvider = ({ children }) => {
   const refreshAlerts = async () => {
     try {
       const res = await getAlerts({ status: 'active', per_page: 1 });
-      setActiveAlerts(res.data.counts?.active || res.data.total || 0);
+      if (res.data && typeof res.data === 'object') {
+        setActiveAlerts(res.data.counts?.active || res.data.total || 0);
+      }
     } catch (err) {
       console.error('Failed to fetch alerts', err);
     }

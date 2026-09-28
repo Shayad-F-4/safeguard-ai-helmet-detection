@@ -1,13 +1,32 @@
 import axios from 'axios';
 
+export const getBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1'
+  ) {
+    return 'https://safeguard-ai-backend-0qpi.onrender.com/api';
+  }
+  return '/api';
+};
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: getBaseUrl(),
   timeout: 60000, // 60s for video uploads
 });
 
-// Global response interceptor — log errors, don't swallow them
+// Global response interceptor — log errors, guard against HTML fallback responses
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    if (typeof res.data === 'string' && res.data.trim().startsWith('<!DOCTYPE')) {
+      const errorMsg = `Received HTML instead of JSON from API: ${res.config?.url}. Backend route not found or proxy misconfigured.`;
+      console.warn(`[API Proxy Warning] ${errorMsg}`);
+      return Promise.reject(new Error(errorMsg));
+    }
+    return res;
+  },
   (err) => {
     const msg = err.response?.data?.error || err.message || 'Unknown error';
     console.error(`[API Error] ${err.config?.method?.toUpperCase()} ${err.config?.url}: ${msg}`);

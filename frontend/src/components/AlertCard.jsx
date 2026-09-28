@@ -40,6 +40,7 @@ const AlertCard = ({ alert, onAcknowledge, onResolve, onViewDetails, compact = f
   const workerId   = alert.worker_id   ?? alert.workerId   ?? 'N/A';
   const cameraName = alert.camera_name ?? alert.camera     ?? 'N/A';
   const timestamp  = alert.created_at  ?? alert.timestamp  ?? '';
+  const dateStr    = timestamp ? formatDateTime(timestamp) : '';
 
   // ─── Confidence: handle 0–1 float OR 0–100 number ────────────────────────────
   const rawConf = typeof alert.confidence === 'number' ? alert.confidence : 0;
