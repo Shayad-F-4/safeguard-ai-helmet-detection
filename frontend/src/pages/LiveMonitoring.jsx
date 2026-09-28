@@ -76,6 +76,7 @@ const LiveMonitoring = () => {
     workers: 0, helmet: 0, noHelmet: 0, fps: 0, inferenceTime: 0,
   });
   const [recentAlerts, setRecentAlerts] = useState([]);
+  const [apiError, setApiError] = useState(null);
 
   // Ref so handleFrame closure always sees latest isPaused & threshold without stale-closure
   const isPausedRef = useRef(false);
@@ -118,13 +119,21 @@ const LiveMonitoring = () => {
     if (isPausedRef.current) return;
 
     try {
-      const res = await detectFrame({
-        frame: base64,
-        camera_id: selectedCameraRef.current,
-        confidence: confidenceThresholdRef.current,
-      });
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Inference timeout (>4000ms)')), 4000)
+      );
+
+      const res = await Promise.race([
+        detectFrame({
+          frame: base64,
+          camera_id: selectedCameraRef.current,
+          confidence: confidenceThresholdRef.current,
+        }),
+        timeoutPromise,
+      ]);
 
       if (res.data && res.data.success !== false) {
+        setApiError(null);
         const data = res.data;
         setFrameCount((n) => n + 1);
         setCurrentDetections(data.detections || []);
@@ -179,6 +188,8 @@ const LiveMonitoring = () => {
       }
     } catch (err) {
       console.error('Frame detection error:', err);
+      const msg = err.response?.data?.error || err.message || 'Cannot reach backend API';
+      setApiError(msg);
     }
   }, [refreshAlerts]); // stable callback
 
@@ -292,6 +303,30 @@ const LiveMonitoring = () => {
             </button>
           </div>
         </div>
+
+        {/* Backend API Connection Warning */}
+        {apiError && (
+          <div className="bg-red-500/15 border-b border-red-500/30 px-4 py-2 text-xs text-red-300 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <span><strong>Backend Connection Error:</strong> {apiError}. Check if backend is running on <code>http://localhost:5000</code>.</span>
+            </div>
+            <button onClick={() => setApiError(null)} className="text-red-400 hover:text-white text-xs underline ml-2">Dismiss</button>
+          </div>
+        )}
+
+        {/* High Threshold Warning / Quick Fix */}
+        {confidenceThreshold > 0.65 && isActive && stats.workers === 0 && (
+          <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 flex items-center justify-between shrink-0">
+            <span>💡 <strong>Tip:</strong> Threshold is high ({Math.round(confidenceThreshold * 100)}%). Webcams without hard hats score ~40–50%. Lower threshold to see detections!</span>
+            <button
+              onClick={() => setConfidenceThreshold(0.45)}
+              className="ml-3 px-2.5 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 rounded font-semibold text-xs border border-amber-500/30 transition"
+            >
+              Set to 45%
+            </button>
+          </div>
+        )}
 
         {/* Video area */}
         <div className="flex-1 relative p-4 min-h-[280px]">

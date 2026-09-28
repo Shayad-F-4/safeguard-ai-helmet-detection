@@ -22,7 +22,7 @@ export const useDetection = () => {
       }
       setResult(res.data);
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Detection failed');
+      setError(err.response?.data?.error || err.response?.data?.message || err.message || 'Detection failed');
     } finally {
       setLoading(false);
     }

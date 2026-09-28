@@ -101,39 +101,53 @@ class YOLOHelmetDetector(HelmetDetector):
         return self._build_response(detections, w, h, inference_ms, fps, mode='yolo')
 
     def predict_video(self, video_path: str) -> dict:
-        """Run YOLO detection across all frames of a video file."""
+        """Run YOLO detection across sampled frames of a video file for high-speed performance."""
         import cv2
 
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise ValueError(f"Cannot open video: {video_path}")
 
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
         video_fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        cap.release()
+        if video_fps <= 0:
+            video_fps = 25.0
+
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 640
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 480
+
+        # Sample at ~2 FPS (every int(video_fps / 2) frames) or cap at max 50 frames
+        step = max(1, int(video_fps / 2))
+        if total_frames // step > 50:
+            step = max(1, total_frames // 50)
 
         start = time.time()
         all_detections = []
         frame_violations = []
-        frame_num = 0
+        frame_idx = 0
+        processed_count = 0
 
-        # Process every 5th frame for performance
-        results_gen = self.model(video_path, conf=self.confidence_threshold,
-                                 stream=True, verbose=False)
-        for result in results_gen:
-            if frame_num % 5 == 0:
-                dets = self._parse_results([result])
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            if frame_idx % step == 0:
+                results = self.model(frame, conf=self.confidence_threshold, verbose=False)
+                dets = self._parse_results(results)
                 violations = sum(1 for d in dets if d['class'] == 'no_helmet')
                 frame_violations.append({
-                    'frame': frame_num,
-                    'timestamp': round(frame_num / video_fps, 2),
+                    'frame': frame_idx,
+                    'timestamp': round(frame_idx / video_fps, 2),
                     'violations': violations,
                     'workers': len(dets),
                 })
                 all_detections.extend(dets)
-            frame_num += 1
+                processed_count += 1
+
+            frame_idx += 1
+
+        cap.release()
 
         inference_ms = (time.time() - start) * 1000
         helmet_total = sum(1 for d in all_detections if d['class'] == 'helmet')
@@ -143,7 +157,7 @@ class YOLOHelmetDetector(HelmetDetector):
         base = self._build_response(all_detections[:10], w, h, inference_ms, video_fps, mode='yolo')
         base['video_stats'] = {
             'total_frames': total_frames,
-            'processed_frames': frame_num,
+            'processed_frames': processed_count,
             'video_fps': round(video_fps, 1),
             'duration_seconds': round(total_frames / video_fps, 1),
             'total_detections': total,
