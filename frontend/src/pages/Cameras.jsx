@@ -485,8 +485,37 @@ const LiveInspectModal = ({ cam, onClose, onOpenLiveMonitoring }) => {
 
             {/* Mobile / IP Stream Note */}
             {!isWebcam && (
-              <div className="p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-xl text-[11px] text-blue-300/90 leading-relaxed">
-                📱 <strong>IP Camera Stream:</strong> Real-time YOLO detection frames are actively rendered from mobile phone camera.
+              <div className="space-y-2">
+                {(() => {
+                  const isPrivateIp = ['10.', '192.168.', '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.', '127.0.0.1', 'localhost'].some((p) => String(cam.source || '').includes(p));
+                  const isCloud = typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
+
+                  if (isPrivateIp && isCloud) {
+                    return (
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-300 leading-relaxed space-y-2">
+                        <div className="font-bold flex items-center gap-1.5 text-amber-400">
+                          <span className="text-sm">⚠</span> Local Wi-Fi Camera on Cloud
+                        </div>
+                        <p className="text-amber-200/90 text-[11px] leading-normal">
+                          <span className="font-mono bg-slate-900 px-1.5 py-0.5 rounded text-amber-300">{cam.source}</span> is inside your private local Wi-Fi. The cloud backend on Render cannot reach inside private Wi-Fi across the public internet.
+                        </p>
+                        <div className="pt-1 text-[11px] text-slate-300 space-y-1.5 border-t border-amber-500/20">
+                          <div className="font-semibold text-amber-300">How to use your phone camera:</div>
+                          <div className="bg-slate-900/80 p-2 rounded border border-slate-700 space-y-1">
+                            <div><strong className="text-green-400">Option 1 (Instant):</strong> Open <span className="text-blue-400 underline font-mono">vercel.app/live</span> in your phone's browser and tap Start!</div>
+                            <div><strong className="text-blue-400">Option 2 (Local PC):</strong> Run <code className="text-slate-200 bg-slate-800 px-1 rounded">python app.py</code> on PC (PC & phone share same Wi-Fi).</div>
+                            <div><strong className="text-purple-400">Option 3 (Public Tunnel):</strong> Run <code className="text-slate-200 bg-slate-800 px-1 rounded">ngrok http 8080</code> and use the public https link.</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-xl text-[11px] text-blue-300/90 leading-relaxed">
+                      📱 <strong>IP Camera Stream:</strong> Real-time YOLO detection frames are actively rendered from mobile phone camera.
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

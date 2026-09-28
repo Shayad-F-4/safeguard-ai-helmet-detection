@@ -247,18 +247,35 @@ def camera_feed_stream(camera_id):
 
         if not cap.isOpened():
             import numpy as np
+            is_private = any(p in str(source) for p in ['10.', '192.168.', '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.', '127.0.0.1', 'localhost'])
+            is_cloud = os.environ.get('RENDER') or os.environ.get('FLASK_ENV') == 'production'
+
             err_img = np.zeros((480, 640, 3), dtype=np.uint8)
             err_img[:] = (20, 24, 33)
-            cv2.putText(err_img, "Camera Stream Offline", (150, 190),
+            cv2.putText(err_img, "Camera Stream Offline", (150, 160),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.85, (80, 80, 240), 2)
-            cv2.putText(err_img, f"Source: {str(source)[:40]}", (80, 235),
+            cv2.putText(err_img, f"Source: {str(source)[:40]}", (80, 205),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.55, (160, 160, 160), 1)
-            cv2.putText(err_img, "1. Open IP Webcam app on mobile", (120, 280),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (130, 130, 130), 1)
-            cv2.putText(err_img, "2. Tap 'Start server' at the bottom", (120, 310),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (130, 130, 130), 1)
-            cv2.putText(err_img, "3. Connect phone & PC to same Wi-Fi", (120, 340),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (130, 130, 130), 1)
+
+            if is_private and is_cloud:
+                cv2.putText(err_img, "NOTE: Private Wi-Fi IP (10.x / 192.168.x)", (70, 250),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.52, (100, 200, 255), 1)
+                cv2.putText(err_img, "Cloud backend cannot access private home/office Wi-Fi", (50, 280),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.48, (200, 200, 200), 1)
+                cv2.putText(err_img, "1. Open app directly on phone: vercel.app/live", (70, 320),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.48, (100, 240, 150), 1)
+                cv2.putText(err_img, "2. Or run backend locally on PC: python app.py", (70, 350),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.48, (180, 180, 180), 1)
+                cv2.putText(err_img, "3. Or forward port via public tunnel (ngrok http 8080)", (70, 380),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.48, (180, 180, 180), 1)
+            else:
+                cv2.putText(err_img, "1. Open IP Webcam app on mobile", (120, 270),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (130, 130, 130), 1)
+                cv2.putText(err_img, "2. Tap 'Start server' at the bottom", (120, 305),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (130, 130, 130), 1)
+                cv2.putText(err_img, "3. Connect phone & PC to same Wi-Fi", (120, 340),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (130, 130, 130), 1)
+
             _, err_buf = cv2.imencode('.jpg', err_img, [cv2.IMWRITE_JPEG_QUALITY, 80])
             for _ in range(10):
                 yield (b'--frame\r\n'
