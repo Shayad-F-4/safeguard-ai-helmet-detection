@@ -40,7 +40,7 @@ export const AppProvider = ({ children }) => {
     const interval = setInterval(() => {
       fetchHealth();
       refreshAlerts();
-    }, 15000);
+    }, 30_000); // Reduced from 15s to 30s
     return () => clearInterval(interval);
   }, []);
 

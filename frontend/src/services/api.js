@@ -1,5 +1,22 @@
 import axios from 'axios';
 
+// Simple in-memory cache for GET requests
+const cache = new Map();
+const CACHE_TTL = 5000; // 5 seconds cache
+
+const getCached = (key) => {
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  cache.delete(key);
+  return null;
+};
+
+const setCached = (key, data) => {
+  cache.set(key, { data, timestamp: Date.now() });
+};
+
 export const getBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
   if (
@@ -14,7 +31,28 @@ export const getBaseUrl = () => {
 
 export const api = axios.create({
   baseURL: getBaseUrl(),
-  timeout: 60000, // 60s for video uploads
+  timeout: 15000, // 15s default - reduced for faster failure
+});
+
+// Request interceptor for caching GET requests
+api.interceptors.request.use((config) => {
+  if (config.method === 'get') {
+    const cacheKey = `${config.url}?${JSON.stringify(config.params || {})}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      config.adapter = () => Promise.resolve({ data: cached, status: 200, statusText: 'OK', headers: {}, config });
+    }
+  }
+  return config;
+});
+
+// Response interceptor for caching successful GET responses
+api.interceptors.response.use((res) => {
+  if (res.config.method === 'get' && res.status === 200) {
+    const cacheKey = `${res.config.url}?${JSON.stringify(res.config.params || {})}`;
+    setCached(cacheKey, res.data);
+  }
+  return res;
 });
 
 // Global response interceptor — log errors, guard against HTML fallback responses

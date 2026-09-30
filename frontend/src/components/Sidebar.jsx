@@ -3,27 +3,22 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Video, Image, Film, ClipboardList, AlertTriangle,
   History, BarChart2, FileText, Camera, Cpu, Settings, Shield,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, ArrowRight, HardHat, Sparkles
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 const NAV_GROUPS = [
   {
-    label: 'Monitoring',
+    label: null,
     items: [
       { name: 'Dashboard',       path: '/',     icon: LayoutDashboard },
       { name: 'Live Monitoring', path: '/live',  icon: Video,  live: true },
-    ],
-  },
-  {
-    label: 'Detection',
-    items: [
       { name: 'Image Detection', path: '/image',  icon: Image },
       { name: 'Video Detection', path: '/video',  icon: Film },
     ],
   },
   {
-    label: 'Data & Reports',
+    label: 'DATA & REPORTS',
     items: [
       { name: 'Detection Results', path: '/results',   icon: ClipboardList },
       { name: 'Safety Alerts',     path: '/alerts',    icon: AlertTriangle, badge: true },
@@ -33,7 +28,7 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: 'System',
+    label: 'SYSTEM',
     items: [
       { name: 'Cameras',   path: '/cameras',  icon: Camera },
       { name: 'AI Model',  path: '/model',    icon: Cpu },
@@ -47,94 +42,124 @@ const Sidebar = () => {
   const { systemStatus, activeAlerts, isDemo } = useAppContext();
 
   const statusColor = systemStatus === 'online'
-    ? 'bg-green-500'
+    ? 'bg-green-400'
     : systemStatus === 'offline'
     ? 'bg-red-500'
-    : 'bg-amber-500';
+    : 'bg-amber-400';
 
   return (
-    <div
-      className={`relative flex flex-col bg-slate-900 border-r border-slate-700/80 transition-all duration-300 ease-in-out shrink-0 ${collapsed ? 'w-[70px]' : 'w-64'}`}
+    <aside
+      className={`relative flex flex-col h-screen border-r border-slate-700/60 transition-all duration-300 ease-in-out shrink-0 select-none z-30 ${
+        collapsed ? 'w-[72px]' : 'w-[264px]'
+      }`}
     >
-      {/* ── Brand ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center h-16 px-4 border-b border-slate-700/80 shrink-0 overflow-hidden">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 shrink-0 shadow-lg shadow-blue-500/30">
-            <Shield className="w-4 h-4 text-white" />
+      {/* ── Background Image with Dark Navy Cyber Overlay ─────────────────── */}
+      <img
+        src="/assets/sidebar_bg.png"
+        alt="SafeGuard AI Navigation"
+        className="absolute inset-0 w-full h-full object-cover object-left opacity-35 pointer-events-none select-none"
+        onError={(e) => {
+          e.target.style.display = 'none';
+        }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#07111F]/95 via-[#091526]/90 to-[#07111F]/98 backdrop-blur-[6px]" />
+
+      {/* ── Brand Header ──────────────────────────────────────────────────── */}
+      <div className="relative z-10 flex items-center justify-between h-16 px-4 border-b border-slate-700/60 shrink-0">
+        <NavLink to="/" className="flex items-center gap-3 min-w-0 group">
+          <div className="relative p-2 rounded-xl bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-400 shadow-md shadow-blue-500/30 shrink-0 transition-transform group-hover:scale-105">
+            <Shield className="w-5 h-5 text-white" />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-cyan-400 animate-ping opacity-75" />
           </div>
+
           {!collapsed && (
             <div className="min-w-0">
-              <span className="block font-bold text-base bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent whitespace-nowrap">
+              <span className="block font-extrabold text-base bg-gradient-to-r from-white via-slate-100 to-slate-200 bg-clip-text text-transparent tracking-tight whitespace-nowrap">
                 SafeGuard AI
               </span>
-              <span className="block text-[10px] text-slate-500 -mt-0.5">Edge AI Detection</span>
+              <span className="block text-[11px] font-medium text-cyan-400/90 tracking-wider uppercase -mt-0.5">
+                Edge AI Detection
+              </span>
             </div>
           )}
-        </div>
+        </NavLink>
+
+        {/* Collapse toggle button */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-blue-600/30 text-slate-400 hover:text-slate-100 border border-slate-700/80 transition-colors shadow-sm"
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label="Toggle sidebar"
+        >
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
       </div>
 
-      {/* ── Collapse toggle ────────────────────────────────────────────────── */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-5 z-10 w-6 h-6 bg-slate-800 border border-slate-600 rounded-full flex items-center justify-center hover:bg-slate-700 transition-colors shadow"
-        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      >
-        {collapsed
-          ? <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-          : <ChevronLeft className="w-3.5 h-3.5 text-slate-400" />
-        }
-      </button>
-
-      {/* ── Nav ───────────────────────────────────────────────────────────── */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 space-y-0.5 px-2">
+      {/* ── Navigation Links ──────────────────────────────────────────────── */}
+      <nav className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden py-3 px-2 space-y-4">
         {NAV_GROUPS.map((group, gi) => (
-          <div key={group.label}>
-            {/* Group label */}
-            {!collapsed && gi > 0 && (
-              <div className="px-3 pt-4 pb-1">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+          <div key={gi} className="space-y-1">
+            {/* Group Label */}
+            {group.label && !collapsed && (
+              <div className="px-3 pt-2 pb-1">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                   {group.label}
                 </span>
               </div>
             )}
-            {collapsed && gi > 0 && <div className="mx-3 my-2 border-t border-slate-700/60" />}
+            {group.label && collapsed && (
+              <div className="mx-2 my-2 border-t border-slate-800/80" />
+            )}
 
+            {/* Menu Items */}
             {group.items.map((item) => (
               <NavLink
                 key={item.name}
                 to={item.path}
                 title={collapsed ? item.name : ''}
                 className={({ isActive }) =>
-                  `relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group ${
+                  `relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group text-sm ${
                     isActive
-                      ? 'bg-gradient-to-r from-blue-600/90 to-blue-500/70 text-white shadow-md shadow-blue-500/20'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
+                      ? 'glow-active-pill text-white font-semibold shadow-lg shadow-blue-500/25'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60 border border-transparent'
                   }`
                 }
               >
-                <item.icon className={`w-5 h-5 shrink-0 ${collapsed ? 'mx-auto' : ''}`} />
-
-                {!collapsed && (
+                {({ isActive }) => (
                   <>
-                    <span className="flex-1 text-sm font-medium truncate">{item.name}</span>
+                    <item.icon
+                      className={`w-4 h-4 shrink-0 transition-colors ${
+                        isActive
+                          ? 'text-white'
+                          : 'text-slate-400 group-hover:text-blue-400'
+                      } ${collapsed ? 'mx-auto' : ''}`}
+                    />
 
-                    {/* Live pulse dot */}
-                    {item.live && (
-                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_6px_rgba(34,197,94,0.8)] shrink-0" />
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 truncate tracking-tight">{item.name}</span>
+
+                        {/* Live indicator dot */}
+                        {item.live && (
+                          <span className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.9)]" />
+                          </span>
+                        )}
+
+                        {/* Alert badge */}
+                        {item.badge && activeAlerts > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-mono font-bold shadow-md shadow-red-500/30 animate-pulse">
+                            {activeAlerts > 99 ? '99+' : activeAlerts}
+                          </span>
+                        )}
+                      </>
                     )}
 
-                    {/* Alert badge */}
-                    {item.badge && activeAlerts > 0 && (
-                      <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shrink-0">
-                        {activeAlerts > 99 ? '99+' : activeAlerts}
-                      </span>
+                    {/* Collapsed dot for alerts */}
+                    {collapsed && item.badge && activeAlerts > 0 && (
+                      <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500" />
                     )}
                   </>
-                )}
-
-                {/* Collapsed badge dot */}
-                {collapsed && item.badge && activeAlerts > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
                 )}
               </NavLink>
             ))}
@@ -142,31 +167,8 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 p-3 border-t border-slate-700/80">
-        <div className={`flex items-center gap-2 px-2 py-2 rounded-lg bg-slate-800/50 ${collapsed ? 'justify-center' : ''}`}>
-          <div className="relative shrink-0">
-            <div className={`w-2.5 h-2.5 rounded-full ${statusColor}`} />
-            {systemStatus === 'online' && (
-              <div className={`absolute inset-0 rounded-full ${statusColor} animate-ping opacity-60`} />
-            )}
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium text-slate-300 capitalize">{systemStatus}</span>
-                {isDemo && (
-                  <span className="text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-px rounded font-bold uppercase tracking-wide">
-                    demo
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] text-slate-600">v1.0.0</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+
+    </aside>
   );
 };
 
